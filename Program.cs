@@ -18,12 +18,16 @@ namespace RSA {
 			Console.WriteLine(rsa.ToPEM_PKCS1(true));
 			Console.WriteLine();
 
-			var en = rsa.Encode("abc内容123");
+			var str = "abc内容123";
+			var en = rsa.Encode(str);
 			Console.WriteLine("【加密】：");
 			Console.WriteLine(en);
 
 			Console.WriteLine("【解密】：");
 			Console.WriteLine(rsa.DecodeOrNull(en));
+
+			Console.WriteLine("【签名SHA1】：");
+			Console.WriteLine(rsa.Sign("SHA1", str));
 			Console.WriteLine();
 
 			var rsa2 = new RSA(rsa.ToPEM_PKCS8(), true);

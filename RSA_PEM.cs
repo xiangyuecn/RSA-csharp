@@ -30,7 +30,7 @@ namespace RSA {
 			var idx = 0;
 
 			//读取长度
-			Func<byte, bool, int> readLen = (first, allLen) => {
+			Func<byte, int> readLen = (first) => {
 				if (data[idx] == first) {
 					idx++;
 					if (data[idx] == 0x81) {
@@ -39,17 +39,15 @@ namespace RSA {
 					} else if (data[idx] == 0x82) {
 						idx++;
 						return (((int)data[idx++]) << 8) + data[idx++];
-					} else if (allLen) {
-						if (data[idx] < 0x80) {
-							return data[idx++];
-						}
+					} else if (data[idx] < 0x80) {
+						return data[idx++];
 					}
 				}
 				throw new Exception("PEM未能提取到数据");
 			};
 			//读取块数据
 			Func<byte[]> readBlock = () => {
-				var len = readLen(0x02, true);
+				var len = readLen(0x02);
 				if (data[idx] == 0x00) {
 					idx++;
 					len--;
@@ -77,15 +75,15 @@ namespace RSA {
 			if (pem.Contains("PUBLIC KEY")) {
 				/****使用公钥****/
 				//读取数据总长度
-				readLen(0x30, false);
+				readLen(0x30);
 				if (!eq(_SeqOID)) {
 					throw new Exception("PEM未知格式");
 				}
 				//读取1长度
-				readLen(0x03, false);
+				readLen(0x03);
 				idx++;//跳过0x00
 				//读取2长度
-				readLen(0x30, false);
+				readLen(0x30);
 
 				//Modulus
 				param.Modulus = readBlock();
@@ -95,7 +93,7 @@ namespace RSA {
 			} else if (pem.Contains("PRIVATE KEY")) {
 				/****使用私钥****/
 				//读取数据总长度
-				readLen(0x30, false);
+				readLen(0x30);
 
 				//读取版本号
 				if (!eq(_Ver)) {
@@ -106,9 +104,9 @@ namespace RSA {
 				var idx2 = idx;
 				if (eq(_SeqOID)) {
 					//读取1长度
-					readLen(0x04, false);
+					readLen(0x04);
 					//读取2长度
-					readLen(0x30, false);
+					readLen(0x30);
 
 					//读取版本号
 					if (!eq(_Ver)) {
@@ -156,11 +154,8 @@ namespace RSA {
 			//https://blog.csdn.net/xuanshao_/article/details/51672547
 
 			var ms = new MemoryStream();
-			//写入一块数据
-			Action<byte[]> writeBlock = (byts) => {
-				var addZero = (byts[0] >> 4) >= 0x8;
-				ms.WriteByte(0x02);
-				var len = byts.Length + (addZero ? 1 : 0);
+			//写入一个长度字节码
+			Action<int> writeLenByte = (len) => {
 				if (len < 0x80) {
 					ms.WriteByte((byte)len);
 				} else if (len <= 0xff) {
@@ -171,11 +166,29 @@ namespace RSA {
 					ms.WriteByte((byte)(len >> 8 & 0xff));
 					ms.WriteByte((byte)(len & 0xff));
 				}
+			};
+			//写入一块数据
+			Action<byte[]> writeBlock = (byts) => {
+				var addZero = (byts[0] >> 4) >= 0x8;
+				ms.WriteByte(0x02);
+				var len = byts.Length + (addZero ? 1 : 0);
+				writeLenByte(len);
 
 				if (addZero) {
 					ms.WriteByte(0x00);
 				}
 				ms.Write(byts, 0, byts.Length);
+			};
+			//根据后续内容长度写入长度数据
+			Func<int, byte[], byte[]> writeLen = (index, byts) => {
+				var len = byts.Length - index;
+
+				ms.SetLength(0);
+				ms.Write(byts, 0, index);
+				writeLenByte(len);
+				ms.Write(byts, index, len);
+
+				return ms.ToArray();
 			};
 
 
@@ -186,10 +199,7 @@ namespace RSA {
 
 				//写入总字节数，不含本段长度，额外需要24字节的头，后续计算好填入
 				ms.WriteByte(0x30);
-				ms.WriteByte(0x82);
 				var index1 = (int)ms.Length;
-				ms.WriteByte(0);
-				ms.WriteByte(0);
 
 				//固定内容
 				// encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"
@@ -197,18 +207,12 @@ namespace RSA {
 
 				//从0x00开始的后续长度
 				ms.WriteByte(0x03);
-				ms.WriteByte(0x82);
 				var index2 = (int)ms.Length;
-				ms.WriteByte(0);
-				ms.WriteByte(0);
 				ms.WriteByte(0x00);
 
 				//后续内容长度
 				ms.WriteByte(0x30);
-				ms.WriteByte(0x82);
 				var index3 = (int)ms.Length;
-				ms.WriteByte(0);
-				ms.WriteByte(0);
 
 				//写入Modulus
 				writeBlock(param.Modulus);
@@ -220,17 +224,9 @@ namespace RSA {
 				//计算空缺的长度
 				var byts = ms.ToArray();
 
-				var len = byts.Length - index1 - 2;
-				byts[index1] = ((byte)(len >> 8 & 0xff));
-				byts[index1 + 1] = ((byte)(len & 0xff));
-
-				len = byts.Length - index2 - 2;
-				byts[index2] = ((byte)(len >> 8 & 0xff));
-				byts[index2 + 1] = ((byte)(len & 0xff));
-
-				len = byts.Length - index3 - 2;
-				byts[index3] = ((byte)(len >> 8 & 0xff));
-				byts[index3 + 1] = ((byte)(len & 0xff));
+				byts = writeLen(index3, byts);
+				byts = writeLen(index2, byts);
+				byts = writeLen(index1, byts);
 
 
 				return "-----BEGIN PUBLIC KEY-----\n" + RSA_Unit.TextBreak(RSA_Unit.Base64EncodeBytes(byts), 64) + "\n-----END PUBLIC KEY-----";
@@ -240,10 +236,7 @@ namespace RSA {
 
 				//写入总字节数，后续写入
 				ms.WriteByte(0x30);
-				ms.WriteByte(0x82);
 				int index1 = (int)ms.Length;
-				ms.WriteByte(0);
-				ms.WriteByte(0);
 
 				//写入版本号
 				ms.writeAll(_Ver);
@@ -256,17 +249,11 @@ namespace RSA {
 
 					//后续内容长度
 					ms.WriteByte(0x04);
-					ms.WriteByte(0x82);
 					index2 = (int)ms.Length;
-					ms.WriteByte(0);
-					ms.WriteByte(0);
 
 					//后续内容长度
 					ms.WriteByte(0x30);
-					ms.WriteByte(0x82);
 					index3 = (int)ms.Length;
-					ms.WriteByte(0);
-					ms.WriteByte(0);
 
 					//写入版本号
 					ms.writeAll(_Ver);
@@ -286,19 +273,11 @@ namespace RSA {
 				//计算空缺的长度
 				var byts = ms.ToArray();
 
-				var len = byts.Length - index1 - 2;
-				byts[index1] = ((byte)(len >> 8 & 0xff));
-				byts[index1 + 1] = ((byte)(len & 0xff));
-
 				if (index2 != -1) {
-					len = byts.Length - index2 - 2;
-					byts[index2] = ((byte)(len >> 8 & 0xff));
-					byts[index2 + 1] = ((byte)(len & 0xff));
-
-					len = byts.Length - index3 - 2;
-					byts[index3] = ((byte)(len >> 8 & 0xff));
-					byts[index3 + 1] = ((byte)(len & 0xff));
+					byts = writeLen(index3, byts);
+					byts = writeLen(index2, byts);
 				}
+				byts = writeLen(index1, byts);
 
 
 				var flag = " PRIVATE KEY";

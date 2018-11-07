@@ -32,20 +32,7 @@ namespace RSA {
 
 
 
-		/// <summary>
-		/// 验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）
-		/// </summary>
-		public bool Verify(string hash, string sgin, string str) {
-			var byts = RSA_Unit.Base64DecodeBytes(sgin);
-			if (byts == null) {
-				return false;
-			}
-			try {
-				return rsa.VerifyData(Encoding.UTF8.GetBytes(str), hash, byts);
-			} catch {
-				return false;
-			}
-		}
+		
 		/// <summary>
 		/// 加密字符串（utf-8），出错抛异常
 		/// </summary>
@@ -125,6 +112,38 @@ namespace RSA {
 				}
 			} catch {
 				return null;
+			}
+		}
+		/// <summary>
+		/// 对str进行签名，并指定hash算法（如：SHA256）
+		/// </summary>
+		public string Sign(string hash, string str) {
+			return RSA_Unit.Base64EncodeBytes(Sign(hash, Encoding.UTF8.GetBytes(str)));
+		}
+		/// <summary>
+		/// 对data进行签名，并指定hash算法（如：SHA256）
+		/// </summary>
+		public byte[] Sign(string hash, byte[] data) {
+			return rsa.SignData(data, hash);
+		}
+		/// <summary>
+		/// 验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）
+		/// </summary>
+		public bool Verify(string hash, string sgin, string str) {
+			var byts = RSA_Unit.Base64DecodeBytes(sgin);
+			if (byts == null) {
+				return false;
+			}
+			return Verify(hash, byts, Encoding.UTF8.GetBytes(str));
+		}
+		/// <summary>
+		/// 验证data的签名是否是sgin，并指定hash算法（如：SHA256）
+		/// </summary>
+		public bool Verify(string hash, byte[] sgin, byte[] data) {
+			try {
+				return rsa.VerifyData(data, hash, sgin);
+			} catch {
+				return false;
 			}
 		}
 
