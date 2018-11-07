@@ -73,7 +73,7 @@ RWdNQlpIaTDo5IhJJwIDAQAB
 /*****二进制分解*****/
 
 /*
-后续（到结尾）内容长度为0x9F字节，相当于整个文件长度-当前这4字节。
+后续（到结尾）内容长度为0x9F字节，相当于整个文件长度-当前这3字节。
 格式：tag[+长度数据占用位数(可选)]+后续长度数值，
 	此处tag=0x30，
 	长度数据占用1位（参考前面长度表述方法），
@@ -82,7 +82,7 @@ RWdNQlpIaTDo5IhJJwIDAQAB
 30 81 9F
 
 /*
-固定内容 encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"（其实不懂是啥玩意）
+固定内容，长度为0x0D个字节 encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"（其实不懂是啥玩意）
 */
 30 0D 06092A864886F70D0101010500
 
@@ -210,7 +210,7 @@ yZKNX3VxmLEHXQ==
 /*#####相对于KCS#1仅仅是在此处开始插入部分数据 Begin#####*/
 
 /*
-固定内容 encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"（其实不懂是啥玩意）
+固定内容 OID
 */
 30 0D 06092A864886F70D0101010500
 
