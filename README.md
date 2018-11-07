@@ -1,9 +1,24 @@
+# RSA-csharp的帮助文档
+
+
+## 跑起来
+
+clone下来用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
+
+
+## 主要支持
+
+- 通过`XML格式`密钥对创建RSA
+- 通过`PEM格式`密钥对创建RSA
+- RSA加密、解密
+- RSA签名、验证
+- 导出`XML格式`公钥、私钥
+- 导出`PEM格式`公钥、私钥
+- `PEM格式`秘钥对和`XML格式`秘钥对互转
 
 
 
-
-
-## 自述
+## 前言、自述、还有啥
 
 在写一个小转换工具时加入了RSA加密解密支持（见图RSA工具），秘钥输入框支持填写XML和PEM格式，操作类型里面支持XML->PEM、PEM->XML的转换。
 
@@ -224,17 +239,6 @@ yZKNX3VxmLEHXQ==
 # C# RSA操作类
 
 
-## 支持
-
-- 通过`XML格式`密钥对创建RSA
-- 通过`PEM格式`密钥对创建RSA
-- RSA加密、解密
-- RSA签名、验证
-- 导出`XML格式`公钥、私钥
-- 导出`PEM格式`公钥、私钥
-- `PEM格式`秘钥对和`XML格式`秘钥对互转
-
-
 ## 主要文件
 
 ### RSA.cs
@@ -302,6 +306,10 @@ RWdNQlpIaTDo5IhJJwIDAQAB
 
 ## 图例
 
+控制台运行：
+
 ![控制台运行](images/1.png)
+
+RSA工具：
 
 ![RSA工具](images/2.png)
