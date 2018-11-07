@@ -58,7 +58,7 @@ PEM格式中，每段数据基本上都是`flag+长度数据占用位数+长度�
 `PKCS#1`、`PKCS#8`公钥编码都是统一的格式。
 
 ```
-/*****1024字节公钥*****/
+/*****1024位公钥*****/
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYw9+M3+REzDtYqwBrs/as/Oy8
 GRE5OmnqOV0EfkEiCIjiczbVEFnZ3qRjLbDATfmBxNQ6c6Fga8nX28glEH/aL/RG
@@ -114,7 +114,7 @@ RSA Modulus内容
 ### PEM PKCS#1私钥编码格式
 
 ```
-/*****1024字节PKCS#1私钥*****/
+/*****1024位PKCS#1私钥*****/
 -----BEGIN RSA PRIVATE KEY-----
 MIICXAIBAAKBgQCYw9+M3+REzDtYqwBrs/as/Oy8GRE5OmnqOV0EfkEiCIjiczbV
 EFnZ3qRjLbDATfmBxNQ6c6Fga8nX28glEH/aL/RG2KdpI8KMUqKAszNydsHSeh9M
@@ -177,7 +177,7 @@ JPJqI6/6hq8/2ARFO3P9/qkxDMkJv8mSjV91cZixB10=
 
 ### PEM PKCS#8私钥编码格式
 ```
-/*****1024字节PKCS#8私钥*****/
+/*****1024位PKCS#8私钥*****/
 -----BEGIN PRIVATE KEY-----
 MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAJjD34zf5ETMO1ir
 AGuz9qz87LwZETk6aeo5XQR+QSIIiOJzNtUQWdnepGMtsMBN+YHE1DpzoWBrydfb
