@@ -8,11 +8,14 @@ namespace RSA {
 	class Program {
 		static void RSATest() {
 			var rsa = new RSA(512);
-			Console.WriteLine("【512密钥（XML）】：");
+			Console.WriteLine("【512私钥（XML）】：");
 			Console.WriteLine(rsa.ToXML());
 			Console.WriteLine();
-			Console.WriteLine("【512密钥（PEM）】：");
+			Console.WriteLine("【512私钥（PEM）】：");
 			Console.WriteLine(rsa.ToPEM_PKCS1());
+			Console.WriteLine();
+			Console.WriteLine("【512公钥（PEM）】：");
+			Console.WriteLine(rsa.ToPEM_PKCS1(true));
 			Console.WriteLine();
 
 			var en = rsa.Encode("abc内容123");

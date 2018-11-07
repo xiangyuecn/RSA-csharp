@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace RSA {
+	/// <summary>
+	/// 封装的一些通用方法
+	/// </summary>
 	public class RSA_Unit {
 		static public string Base64EncodeBytes(byte[] byts) {
 			return Convert.ToBase64String(byts);

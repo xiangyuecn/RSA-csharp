@@ -8,6 +8,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace RSA {
+	/// <summary>
+	/// RSA PEM格式秘钥对的解析和导出
+	/// </summary>
 	public class RSA_PEM {
 		/// <summary>
 		/// 用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM
@@ -143,9 +146,9 @@ namespace RSA {
 
 
 		/// <summary>
-		/// 将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式
+		/// 将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
 		/// </summary>
-		public static string ToPEM(RSACryptoServiceProvider rsa, bool usePKCS8) {
+		public static string ToPEM(RSACryptoServiceProvider rsa, bool convertToPublic, bool usePKCS8) {
 			//https://www.jianshu.com/p/25803dd9527d
 			//https://www.cnblogs.com/ylz8401/p/8443819.html
 			//https://blog.csdn.net/jiayanhui2877/article/details/47187077
@@ -176,7 +179,7 @@ namespace RSA {
 			};
 
 
-			if (rsa.PublicOnly) {
+			if (rsa.PublicOnly || convertToPublic) {
 				/****生成公钥****/
 				var param = rsa.ExportParameters(false);
 
