@@ -19,7 +19,7 @@ clone下来用vs应该能够直接打开，经目测看起来没什么卵用的�
 
 ## 已知问题
 
-代码在.NET Framework 4.5测试过，如果要用在.NET Core下，除了RSA_PEM.cs可以copy过去用用外，其他几个文件不建议拿到.NET Core下使用；因为RSA_PEM里面除了RSACryptoServiceProvider、RSAParameters之外的代码是容易用别的语言来实现，而这两个玩意在这个文件里面几乎算是可有可无的东西。问题在于我用的RSACryptoServiceProvider在.NET Core下面就是个残废，参考[/issues/1](/issues/1)，手动额外实现一下FromXmlString、ToXmlString（关键是会去用这两个函数完全是被.NET Framework的RSACryptoServiceProvider逼的啊，要是他直接支持PEM秘钥，这个仓库都省了，不可能因为RSACryptoServiceProvider的XML格式而去支持XML格式~）。
+代码在.NET Framework 4.5测试过，如果要用在.NET Core下，除了RSA_PEM.cs可以copy过去用用外，其他几个文件不建议拿到.NET Core下使用；因为RSA_PEM里面除了RSACryptoServiceProvider、RSAParameters之外的代码是容易用别的语言来实现，而这两个玩意在这个文件里面几乎算是可有可无的东西。问题在于我用的RSACryptoServiceProvider在.NET Core下面就是个残废，参考[/issues/1](#1)，手动额外实现一下FromXmlString、ToXmlString（关键是会去用这两个函数完全是被.NET Framework的RSACryptoServiceProvider逼的啊，要是他直接支持PEM秘钥，这个仓库都省了，不可能因为RSACryptoServiceProvider的XML格式而去支持XML格式~）。
 
 
 
