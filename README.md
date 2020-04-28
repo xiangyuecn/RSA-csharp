@@ -1,12 +1,12 @@
 # :open_book:RSA-csharp的帮助文档
 
-本项目核心功能为：支持`.Net`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
+本项目核心功能为：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
 
 附带实现了一个RSA封装操作类，和一个测试控制台程序。
 
-支持`.NET Core`、`.NET Framework`；已移植到Java版：[RSA-java](https://github.com/xiangyuecn/RSA-java/blob/master/RSA_PEM.java)；你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSACryptoServiceProvider`的能力。
+你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSACryptoServiceProvider`的能力。clone整个项目代码用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
 
-clone下来用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
+【Java版】：[RSA-java](https://github.com/xiangyuecn/RSA-java)
 
 
 ## 提供支持
@@ -33,13 +33,13 @@ clone下来用vs应该能够直接打开，经目测看起来没什么卵用的�
 
 ### 实例属性
 
-`byte[]`：`Key_Modulus`(模数n，公钥、私钥都有)、`Key_Exponent`(公钥指数e，公钥、私钥都有)、`Key_D`(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
+`byte[]`：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
 
-`byte[]`：`Val_P`(prime1)、`Val_Q`(prime2)、`Val_DP`(exponent1)、`Val_DQ`(exponent2)、`Val_InverseQ`(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
+`byte[]`：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_DQ**(exponent2)、**Val_InverseQ**(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
 
-`int`：`KeySize`(密钥位数)
+`int`：**KeySize**(密钥位数)
 
-`bool`：`HasPrivate`(是否包含私钥)
+`bool`：**HasPrivate**(是否包含私钥)
 
 ### 构造方法
 
@@ -84,11 +84,11 @@ clone下来用vs应该能够直接打开，经目测看起来没什么卵用的�
 
 ### 实例属性
 
-`RSACryptoServiceProvider`：`RSAObject`(最底层的RSACryptoServiceProvider对象)
+`RSACryptoServiceProvider`：**RSAObject**(最底层的RSACryptoServiceProvider对象)
 
-`int`：`KeySize`(密钥位数)
+`int`：**KeySize**(密钥位数)
 
-`bool`：`HasPrivate`(是否包含私钥)
+`bool`：**HasPrivate**(是否包含私钥)
 
 
 ### 实例方法
