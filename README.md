@@ -1,12 +1,15 @@
-# RSA-csharp的帮助文档
+# :open_book:RSA-csharp的帮助文档
 
+本项目核心功能为：支持`.Net`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
 
-## 跑起来
+附带实现了一个RSA封装操作类，和一个测试控制台程序。
+
+支持`.NET Core`、`.NET Framework`；已移植到Java版：[RSA-java](https://github.com/xiangyuecn/RSA-java/blob/master/RSA_PEM.java)；你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSACryptoServiceProvider`的能力。
 
 clone下来用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
 
 
-## 主要支持
+## 提供支持
 
 - 通过`XML格式`密钥对创建RSA
 - 通过`PEM格式`密钥对创建RSA
@@ -17,13 +20,123 @@ clone下来用vs应该能够直接打开，经目测看起来没什么卵用的�
 - `PEM格式`秘钥对和`XML格式`秘钥对互转
 
 
-## 已知问题
-
-代码在.NET Framework 4.5测试过，如果要用在.NET Core下，除了RSA_PEM.cs可以copy过去用用外，其他几个文件不建议拿到.NET Core下使用；因为RSA_PEM里面除了RSACryptoServiceProvider、RSAParameters之外的代码是容易用别的语言来实现，而这两个玩意在这个文件里面几乎算是可有可无的东西。问题在于我用的RSACryptoServiceProvider在.NET Core下面就是个残废，参考[/issues/1](https://github.com/xiangyuecn/RSA-csharp/issues/1)，手动额外实现一下FromXmlString、ToXmlString（关键是会去用这两个函数完全是被.NET Framework的RSACryptoServiceProvider逼的啊，要是他直接支持PEM秘钥，这个仓库都省了，不可能因为RSACryptoServiceProvider的XML格式而去支持XML格式~）。
 
 
+# :open_book:文档
 
-## 前言、自述、还有啥
+## 【RSA_PEM.cs】
+此文件不依赖任何文件，可以直接copy这个文件到你项目中用；通过`FromPEM`、`ToPEM` 和`FromXML`、`ToXML`这两对方法，可以实现PEM`PKCS#1`、`PKCS#8`相互转换，PEM、XML的相互转换。
+
+项目里面需要引入程序集`System.Numerics`用来支持`BigInteger`，vs默认创建的项目是不会自动引入此程序集的，要手动引入。
+
+注：openssl `RSAPublicKey_out`导出的公钥，字节码内并不带[OID](http://www.oid-info.com/get/1.2.840.113549.1.1.1)（目测是因为不带OID所以openssl自己都不支持用这个公钥来加密数据），RSA_PEM支持此格式公钥的导入，但不提供此种格式公钥的导出。
+
+### 实例属性
+
+`byte[]`：`Key_Modulus`(模数n，公钥、私钥都有)、`Key_Exponent`(公钥指数e，公钥、私钥都有)、`Key_D`(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
+
+`byte[]`：`Val_P`(prime1)、`Val_Q`(prime2)、`Val_DP`(exponent1)、`Val_DQ`(exponent2)、`Val_InverseQ`(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
+
+`int`：`KeySize`(密钥位数)
+
+`bool`：`HasPrivate`(是否包含私钥)
+
+### 构造方法
+
+`RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)`：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
+
+`RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)`：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
+
+`RSA_PEM(byte[] modulus, byte[] exponent, byte[] dOrNull)`：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+
+
+### 实例方法
+
+`RSACryptoServiceProvider GetRSA()`：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。
+
+`string ToPEM(bool convertToPublic, bool usePKCS8)`：将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+
+`string ToXML(bool convertToPublic)`：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+
+
+### 静态方法
+
+`static RSA_PEM FromPEM(string pem)`：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+
+`static RSA_PEM FromXML(string xml)`：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。
+
+
+
+
+## 【RSA.cs】
+此文件依赖`RSA_PEM.cs`，封装了加密、解密、签名、验证、秘钥导入导出操作。
+
+### 构造方法
+
+`RSA(int keySize)`：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
+
+`RSA(string xml)`：通过XML格式密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。，`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`
+
+`RSA(string pem, bool noop)`：通过`PEM格式`密钥对创建RSA（noop参数随意填），PEM可以是公钥或私钥，支持`PKCS#1`、`PKCS#8`格式，pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+
+`RSA(RSA_PEM pem)`：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
+
+
+### 实例属性
+
+`RSACryptoServiceProvider`：`RSAObject`(最底层的RSACryptoServiceProvider对象)
+
+`int`：`KeySize`(密钥位数)
+
+`bool`：`HasPrivate`(是否包含私钥)
+
+
+### 实例方法
+
+`string ToXML(bool convertToPublic = false)`：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+
+`string ToPEM_PKCS1(bool convertToPublic = false)`：导出`PEM PKCS#1格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+
+`string ToPEM_PKCS8(bool convertToPublic = false)`：导出`PEM PKCS#8格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+
+`RSA_PEM ToPEM(bool convertToPublic = false)`：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+
+`string Encode(string str)`：加密操作，支持任意长度数据。
+
+`byte[] Encode(byte[] data)`：加密数据，支持任意长度数据，出错抛异常。
+
+`string DecodeOrNull(string str)`：解密字符串（utf-8），解密异常返回null。
+
+`byte[] DecodeOrNull(byte[] data)`：解密数据，解密异常返回null。
+
+`string Sign(string hash, string str)`：对str进行签名，并指定hash算法（如：SHA256）。
+
+`byte[] Sign(string hash, byte[] data)`：对data进行签名，并指定hash算法（如：SHA256）。
+
+`bool Verify(string hash, string sgin, string str)`：验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）。
+
+`bool Verify(string hash, byte[] sgin, byte[] data)`：验证data的签名是否是sgin，并指定hash算法（如：SHA256）。
+
+
+
+
+
+
+# :open_book:图例
+
+控制台运行：
+
+![控制台运行](images/1.png)
+
+RSA工具（非开源）：
+
+![RSA工具](images/2.png)
+
+
+
+
+
+# :open_book:知识库
 
 在写一个小转换工具时加入了RSA加密解密支持（见图RSA工具），秘钥输入框支持填写XML和PEM格式，操作类型里面支持XML->PEM、PEM->XML的转换。
 
@@ -266,83 +379,3 @@ yZKNX3VxmLEHXQ==
 ```
 
 
-
-
-
-# C# RSA操作类
-
-
-## 主要文件
-
-### RSA.cs
-此文件依赖`RSA_PEM.cs`，用于进行加密、解密、签名、验证、秘钥导入导出操作。
-
-#### [构造函数] new RSA(`1024`)
-通过指定密钥长度来创建RSA，会生成新密钥。
-
-#### [构造函数] new RSA(`"<xml>"`)
-通过`XML格式`密钥对创建RSA，xml可以是公钥或私钥，`XML格式`如：
-```
-<RSAKeyValue><Modulus>mMPfjN/kRMw7WKsAa7P2rPzsvBkROTpp6jldBH5BIgiI4nM21RBZ2d6kYy2wwE35gcTUOnOhYGvJ19vIJRB/2i/0RtinaSPCjFKigLMzcnbB0nofTEinHec4EuDbhNLvnkewgfJDloqYiw0JmN/JKTN+qUVnTUJaSGkw6OSISSc=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>
-```
-
-#### [构造函数] new RSA(`"PEM"`, `any`)
-通过`PEM格式`密钥对创建RSA，PEM可以是公钥或私钥，支持`PKCS#1`、`PKCS#8`格式，`PEM格式`如：
-```
------BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYw9+M3+REzDtYqwBrs/as/Oy8
-GRE5OmnqOV0EfkEiCIjiczbVEFnZ3qRjLbDATfmBxNQ6c6Fga8nX28glEH/aL/RG
-2KdpI8KMUqKAszNydsHSeh9MSKcd5zgS4NuE0u+eR7CB8kOWipiLDQmY38kpM36p
-RWdNQlpIaTDo5IhJJwIDAQAB
------END PUBLIC KEY-----
-```
-
-#### [方法] .ToXML(`[false]是否仅仅导出公钥`)
-导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
-
-#### [方法] .ToPEM_PKCS1|.ToPEM_PKCS8(`[false]是否仅仅导出公钥`)
-导出`PEM格式`秘钥对，两个方法分别导出`PKCS#1`、`PKCS#8`格式。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
-
-#### [方法] .Encode(`"字符串"|bytes`)
-加密操作，支持任意长度数据。
-
-#### [方法] .DecodeOrNull(`"Base64字符串"|bytes`)
-解密操作，解密失败返回null，支持任意长度数据。
-
-#### [方法] .Sign(`"hash"`, `"字符串"|bytes`)
-通过hash算法（MD5、SHA1等）来对数据进行签名。
-
-#### [方法] .Verify(`"hash"`, `"sign"`, `"字符串"`)
-通过hash算法（MD5、SHA1等）来验证字符串是否和sign签名一致。
-
-
-### RSA_PEM.cs
-此文件不依赖任何文件，可以单独copy来用（`RSA_Unit`里面的方法可以忽略）
-
-#### [静态方法] .FromPEM(`"PEM"`)
-通过`PEM格式`秘钥对来创建`RSACryptoServiceProvider`，PEM可以是公钥或私钥。
-
-#### [静态方法] .ToPEM(`RSACryptoServiceProvider`, `exportPublicOnly`, `usePKCS8`)
-将RSA中的密钥对导出成`PEM格式`，`usePKCS8=false`时返回`PKCS#1格式`，否则返回`PKCS#8格式`。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
-
-
-
-## 次要文件
-
-## RSA_Unit.cs
-封装的一些通用方法，如：base64。没有此文件也可以，引用的地方用别的代码实现。
-
-## Program.cs
-控制台入口文件，用来测试的，里面包含了主要的使用用例。
-
-
-
-## 图例
-
-控制台运行：
-
-![控制台运行](images/1.png)
-
-RSA工具：
-
-![RSA工具](images/2.png)

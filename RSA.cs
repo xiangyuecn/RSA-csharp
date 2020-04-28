@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace RSA {
+namespace com.github.xiangyuecn.rsacsharp {
 	/// <summary>
 	/// RSA操作类
+	/// GitHub: https://github.com/xiangyuecn/RSA-csharp
 	/// </summary>
 	public class RSA {
 		/// <summary>
@@ -21,23 +19,29 @@ namespace RSA {
 		/// 导出PEM PKCS#1格式密钥对，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
 		/// </summary>
 		public string ToPEM_PKCS1(bool convertToPublic = false) {
-			return RSA_PEM.ToPEM(rsa, convertToPublic, false);
+			return new RSA_PEM(rsa).ToPEM(convertToPublic, false);
 		}
 		/// <summary>
 		/// 导出PEM PKCS#8格式密钥对，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
 		/// </summary>
 		public string ToPEM_PKCS8(bool convertToPublic = false) {
-			return RSA_PEM.ToPEM(rsa, convertToPublic, true);
+			return new RSA_PEM(rsa).ToPEM(convertToPublic, true);
+		}
+		/// <summary>
+		/// 将密钥对导出成PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// </summary>
+		public RSA_PEM ToPEM(bool convertToPublic = false) {
+			return new RSA_PEM(rsa, convertToPublic);
 		}
 
 
 
-		
+
 		/// <summary>
 		/// 加密字符串（utf-8），出错抛异常
 		/// </summary>
 		public string Encode(string str) {
-			return RSA_Unit.Base64EncodeBytes(Encode(Encoding.UTF8.GetBytes(str)));
+			return Convert.ToBase64String(Encode(Encoding.UTF8.GetBytes(str)));
 		}
 		/// <summary>
 		/// 加密数据，出错抛异常
@@ -73,7 +77,8 @@ namespace RSA {
 			if (String.IsNullOrEmpty(str)) {
 				return null;
 			}
-			var byts = RSA_Unit.Base64DecodeBytes(str);
+			byte[] byts = null;
+			try { byts = Convert.FromBase64String(str); } catch { }
 			if (byts == null) {
 				return null;
 			}
@@ -118,7 +123,7 @@ namespace RSA {
 		/// 对str进行签名，并指定hash算法（如：SHA256）
 		/// </summary>
 		public string Sign(string hash, string str) {
-			return RSA_Unit.Base64EncodeBytes(Sign(hash, Encoding.UTF8.GetBytes(str)));
+			return Convert.ToBase64String(Sign(hash, Encoding.UTF8.GetBytes(str)));
 		}
 		/// <summary>
 		/// 对data进行签名，并指定hash算法（如：SHA256）
@@ -130,7 +135,8 @@ namespace RSA {
 		/// 验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）
 		/// </summary>
 		public bool Verify(string hash, string sgin, string str) {
-			var byts = RSA_Unit.Base64DecodeBytes(sgin);
+			byte[] byts = null;
+			try { byts = Convert.FromBase64String(sgin); } catch { }
 			if (byts == null) {
 				return false;
 			}
@@ -151,18 +157,36 @@ namespace RSA {
 
 
 		private RSACryptoServiceProvider rsa;
-		private void _init() {
-			var rsaParams = new CspParameters();
-			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
-			rsa = new RSACryptoServiceProvider(rsaParams);
+		/// <summary>
+		/// 最底层的RSACryptoServiceProvider对象
+		/// </summary>
+		public RSACryptoServiceProvider RSAObject {
+			get {
+				return rsa;
+			}
+		}
+
+		/// <summary>
+		/// 密钥位数
+		/// </summary>
+		public int KeySize {
+			get {
+				return rsa.KeySize;
+			}
+		}
+		/// <summary>
+		/// 是否包含私钥
+		/// </summary>
+		public bool HasPrivate {
+			get {
+				return !rsa.PublicOnly;
+			}
 		}
 
 		/// <summary>
 		/// 用指定密钥大小创建一个新的RSA，出错抛异常
 		/// </summary>
 		public RSA(int keySize) {
-			_init();
-
 			var rsaParams = new CspParameters();
 			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
 			rsa = new RSACryptoServiceProvider(keySize, rsaParams);
@@ -171,7 +195,9 @@ namespace RSA {
 		/// 通过指定的密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常
 		/// </summary>
 		public RSA(string xml) {
-			_init();
+			var rsaParams = new CspParameters();
+			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
+			rsa = new RSACryptoServiceProvider(rsaParams);
 
 			rsa.FromXmlString(xml);
 		}
@@ -179,9 +205,13 @@ namespace RSA {
 		/// 通过一个pem文件创建RSA，pem为公钥或私钥，出错抛异常
 		/// </summary>
 		public RSA(string pem, bool noop) {
-			_init();
-
-			rsa = RSA_PEM.FromPEM(pem);
+			rsa = RSA_PEM.FromPEM(pem).GetRSA();
+		}
+		/// <summary>
+		/// 通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常
+		/// </summary>
+		public RSA(RSA_PEM pem) {
+			rsa = pem.GetRSA();
 		}
 	}
 }

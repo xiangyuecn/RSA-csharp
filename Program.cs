@@ -1,20 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace RSA {
+namespace com.github.xiangyuecn.rsacsharp {
+	/// <summary>
+	/// RSA、RSA_PEM测试控制台主程序
+	/// GitHub: https://github.com/xiangyuecn/RSA-csharp
+	/// </summary>
 	class Program {
 		static void RSATest() {
 			var rsa = new RSA(512);
-			Console.WriteLine("【512私钥（XML）】：");
+			Console.WriteLine("【" + rsa.KeySize + "私钥（XML）】：");
 			Console.WriteLine(rsa.ToXML());
 			Console.WriteLine();
-			Console.WriteLine("【512私钥（PEM）】：");
+			Console.WriteLine("【" + rsa.KeySize + "私钥（PEM）】：");
 			Console.WriteLine(rsa.ToPEM_PKCS1());
 			Console.WriteLine();
-			Console.WriteLine("【512公钥（PEM）】：");
+			Console.WriteLine("【" + rsa.KeySize + "公钥（PEM）】：");
 			Console.WriteLine(rsa.ToPEM_PKCS1(true));
 			Console.WriteLine();
 
@@ -41,6 +41,22 @@ namespace RSA {
 			Console.WriteLine("XML：" + (rsa3.ToXML() == rsa.ToXML()));
 			Console.WriteLine("PKCS1：" + (rsa3.ToPEM_PKCS1() == rsa.ToPEM_PKCS1()));
 			Console.WriteLine("PKCS8：" + (rsa3.ToPEM_PKCS8() == rsa.ToPEM_PKCS8()));
+
+			//--------RSA_PEM验证---------
+			RSA_PEM pem = rsa.ToPEM();
+			Console.WriteLine("【RSA_PEM是否和原始RSA一致】：");
+			Console.WriteLine(pem.KeySize + "位");
+			Console.WriteLine("XML：" + (pem.ToXML(false) == rsa.ToXML()));
+			Console.WriteLine("PKCS1：" + (pem.ToPEM(false, false) == rsa.ToPEM_PKCS1()));
+			Console.WriteLine("PKCS8：" + (pem.ToPEM(false, true) == rsa.ToPEM_PKCS8()));
+			Console.WriteLine("仅公钥：");
+			Console.WriteLine("XML：" + (pem.ToXML(true) == rsa.ToXML(true)));
+			Console.WriteLine("PKCS1：" + (pem.ToPEM(true, false) == rsa.ToPEM_PKCS1(true)));
+			Console.WriteLine("PKCS8：" + (pem.ToPEM(true, true) == rsa.ToPEM_PKCS8(true)));
+
+			var rsa4 = new RSA(new RSA_PEM(pem.Key_Modulus, pem.Key_Exponent, pem.Key_D));
+			Console.WriteLine("【用n、e、d构造解密】");
+			Console.WriteLine(rsa4.DecodeOrNull(en));
 		}
 
 
