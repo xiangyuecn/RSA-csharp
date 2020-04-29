@@ -1,24 +1,32 @@
 # :open_book:RSA-csharp的帮助文档
 
-本项目核心功能为：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
+本项目核心功能：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
 
-附带实现了一个RSA封装操作类，和一个测试控制台程序。
+底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了一个RSA封装操作类，和一个测试控制台程序。
 
 你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSACryptoServiceProvider`的能力。clone整个项目代码用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
 
 【Java版】：[RSA-java](https://github.com/xiangyuecn/RSA-java)
 
 
-## 提供支持
+## 特性
 
 - 通过`XML格式`密钥对创建RSA
 - 通过`PEM格式`密钥对创建RSA
+- 通过指定密钥位数创建RSA（生成公钥、私钥）
 - RSA加密、解密
 - RSA签名、验证
 - 导出`XML格式`公钥、私钥
 - 导出`PEM格式`公钥、私钥
 - `PEM格式`秘钥对和`XML格式`秘钥对互转
 
+
+
+## 【QQ群】交流与支持
+
+欢迎加QQ群：421882406，纯小写口令：`xiangyuecn`
+
+<img src="https://gitee.com/xiangyuecn/Recorder/raw/master/assets/qq_group_421882406.png" width="220px">
 
 
 
@@ -31,6 +39,16 @@
 
 注：openssl `RSAPublicKey_out`导出的公钥，字节码内并不带[OID](http://www.oid-info.com/get/1.2.840.113549.1.1.1)（目测是因为不带OID所以openssl自己都不支持用这个公钥来加密数据），RSA_PEM支持此格式公钥的导入，但不提供此种格式公钥的导出。
 
+
+### 构造方法
+
+**RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)**：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
+
+**RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
+
+**RSA_PEM(byte[] modulus, byte[] exponent, byte[] dOrNull)**：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+
+
 ### 实例属性
 
 byte[]：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
@@ -40,14 +58,6 @@ byte[]：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_D
 int：**KeySize**(密钥位数)
 
 bool：**HasPrivate**(是否包含私钥)
-
-### 构造方法
-
-**RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)**：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
-
-**RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
-
-**RSA_PEM(byte[] modulus, byte[] exponent, byte[] dOrNull)**：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
 
 
 ### 实例方法
