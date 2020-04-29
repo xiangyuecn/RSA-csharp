@@ -379,3 +379,25 @@ yZKNX3VxmLEHXQ==
 ```
 
 
+
+## openssl RSA常用命令行
+``` bat
+::生成密钥对
+openssl genrsa -out private.pem 1024
+
+::提取公钥PKCS#8
+openssl rsa -in private.pem -pubout -out public.pem
+
+::转换成RSAPublicKey PKCS#1?
+openssl rsa -pubin -in public.pem -RSAPublicKey_out -out public.pem.rsakey
+
+::加密
+echo abcd123 | openssl rsautl -encrypt -inkey public.pem -pubin -out data.enc.bin
+
+::解密
+openssl rsautl -decrypt -in data.enc.bin -inkey private.pem -out data.dec.txt
+
+::测试RSAPublicKey PKCS#1?，不出意外会出错
+::因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#1自动带上OID就能正常加密
+echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
+```
