@@ -411,3 +411,14 @@ openssl rsautl -decrypt -in data.enc.bin -inkey private.pem -out data.dec.txt
 ::因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#1自动带上OID就能正常加密
 echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
 ```
+
+
+
+
+# :star:捐赠
+如果这个库有帮助到您，请 Star 一下。
+
+您也可以使用支付宝或微信打赏作者：
+
+![](https://gitee.com/xiangyuecn/Recorder/raw/master/assets/donate-alipay.png)  ![](https://gitee.com/xiangyuecn/Recorder/raw/master/assets/donate-weixin.png)
+
