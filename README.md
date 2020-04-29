@@ -33,37 +33,37 @@
 
 ### 实例属性
 
-`byte[]`：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
+byte[]：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
 
-`byte[]`：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_DQ**(exponent2)、**Val_InverseQ**(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
+byte[]：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_DQ**(exponent2)、**Val_InverseQ**(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
 
-`int`：**KeySize**(密钥位数)
+int：**KeySize**(密钥位数)
 
-`bool`：**HasPrivate**(是否包含私钥)
+bool：**HasPrivate**(是否包含私钥)
 
 ### 构造方法
 
-`RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)`：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
+**RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)**：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
 
-`RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)`：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
+**RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
 
-`RSA_PEM(byte[] modulus, byte[] exponent, byte[] dOrNull)`：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+**RSA_PEM(byte[] modulus, byte[] exponent, byte[] dOrNull)**：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
 
 
 ### 实例方法
 
-`RSACryptoServiceProvider GetRSA()`：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。
+**RSACryptoServiceProvider GetRSA()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。
 
-`string ToPEM(bool convertToPublic, bool usePKCS8)`：将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+**string ToPEM(bool convertToPublic, bool usePKCS8)**：将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
-`string ToXML(bool convertToPublic)`：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+**string ToXML(bool convertToPublic)**：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
 
 ### 静态方法
 
-`static RSA_PEM FromPEM(string pem)`：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+**static RSA_PEM FromPEM(string pem)**：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
-`static RSA_PEM FromXML(string xml)`：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。
+**static RSA_PEM FromXML(string xml)**：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。
 
 
 
@@ -73,49 +73,49 @@
 
 ### 构造方法
 
-`RSA(int keySize)`：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
+**RSA(int keySize)**：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
 
-`RSA(string xml)`：通过XML格式密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。，`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`
+**RSA(string xml)**：通过XML格式密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`
 
-`RSA(string pem, bool noop)`：通过`PEM格式`密钥对创建RSA（noop参数随意填），PEM可以是公钥或私钥，支持`PKCS#1`、`PKCS#8`格式，pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+**RSA(string pem, bool noop)**：通过`PEM格式`密钥对创建RSA（noop参数随意填），PEM可以是公钥或私钥，支持`PKCS#1`、`PKCS#8`格式，pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
-`RSA(RSA_PEM pem)`：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
+**RSA(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
 
 
 ### 实例属性
 
-`RSACryptoServiceProvider`：**RSAObject**(最底层的RSACryptoServiceProvider对象)
+RSACryptoServiceProvider：**RSAObject**(最底层的RSACryptoServiceProvider对象)
 
-`int`：**KeySize**(密钥位数)
+int：**KeySize**(密钥位数)
 
-`bool`：**HasPrivate**(是否包含私钥)
+bool：**HasPrivate**(是否包含私钥)
 
 
 ### 实例方法
 
-`string ToXML(bool convertToPublic = false)`：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+**string ToXML(bool convertToPublic = false)**：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
 
-`string ToPEM_PKCS1(bool convertToPublic = false)`：导出`PEM PKCS#1格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+**string ToPEM_PKCS1(bool convertToPublic = false)**：导出`PEM PKCS#1格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
 
-`string ToPEM_PKCS8(bool convertToPublic = false)`：导出`PEM PKCS#8格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+**string ToPEM_PKCS8(bool convertToPublic = false)**：导出`PEM PKCS#8格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
 
-`RSA_PEM ToPEM(bool convertToPublic = false)`：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+**RSA_PEM ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
-`string Encode(string str)`：加密操作，支持任意长度数据。
+**string Encode(string str)**：加密操作，支持任意长度数据。
 
-`byte[] Encode(byte[] data)`：加密数据，支持任意长度数据，出错抛异常。
+**byte[] Encode(byte[] data)**：加密数据，支持任意长度数据，出错抛异常。
 
-`string DecodeOrNull(string str)`：解密字符串（utf-8），解密异常返回null。
+**string DecodeOrNull(string str)**：解密字符串（utf-8），解密异常返回null。
 
-`byte[] DecodeOrNull(byte[] data)`：解密数据，解密异常返回null。
+**byte[] DecodeOrNull(byte[] data)**：解密数据，解密异常返回null。
 
-`string Sign(string hash, string str)`：对str进行签名，并指定hash算法（如：SHA256）。
+**string Sign(string hash, string str)**：对str进行签名，并指定hash算法（如：SHA256）。
 
-`byte[] Sign(string hash, byte[] data)`：对data进行签名，并指定hash算法（如：SHA256）。
+**byte[] Sign(string hash, byte[] data)**：对data进行签名，并指定hash算法（如：SHA256）。
 
-`bool Verify(string hash, string sgin, string str)`：验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）。
+**bool Verify(string hash, string sgin, string str)**：验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）。
 
-`bool Verify(string hash, byte[] sgin, byte[] data)`：验证data的签名是否是sgin，并指定hash算法（如：SHA256）。
+**bool Verify(string hash, byte[] sgin, byte[] data)**：验证data的签名是否是sgin，并指定hash算法（如：SHA256）。
 
 
 
