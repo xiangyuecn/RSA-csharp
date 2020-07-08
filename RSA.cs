@@ -16,18 +16,6 @@ namespace com.github.xiangyuecn.rsacsharp {
 			return rsa.ToXmlString(!rsa.PublicOnly && !convertToPublic);
 		}
 		/// <summary>
-		/// 导出PEM PKCS#1格式密钥对，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
-		/// </summary>
-		public string ToPEM_PKCS1(bool convertToPublic = false) {
-			return new RSA_PEM(rsa).ToPEM(convertToPublic, false);
-		}
-		/// <summary>
-		/// 导出PEM PKCS#8格式密钥对，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
-		/// </summary>
-		public string ToPEM_PKCS8(bool convertToPublic = false) {
-			return new RSA_PEM(rsa).ToPEM(convertToPublic, true);
-		}
-		/// <summary>
 		/// 将密钥对导出成PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
 		/// </summary>
 		public RSA_PEM ToPEM(bool convertToPublic = false) {
@@ -212,6 +200,24 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// </summary>
 		public RSA(RSA_PEM pem) {
 			rsa = pem.GetRSA();
+		}
+		/// <summary>
+		/// 本方法会先生成RSA_PEM再创建RSA：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同
+		/// 注意：所有参数首字节如果是0，必须先去掉
+		/// 出错将会抛出异常
+		/// </summary>
+		/// <param name="modulus">必须提供模数</param>
+		/// <param name="exponent">必须提供公钥指数</param>
+		/// <param name="dOrNull">私钥指数可以不提供，导出的PEM就只包含公钥</param>
+		public RSA(byte[] modulus, byte[] exponent, byte[] dOrNull) {
+			rsa = new RSA_PEM(modulus, exponent, dOrNull).GetRSA();
+		}
+		/// <summary>
+		/// 本方法会先生成RSA_PEM再创建RSA：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）
+		/// 注意：所有参数首字节如果是0，必须先去掉
+		/// </summary>
+		public RSA(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ) {
+			rsa = new RSA_PEM(modulus, exponent, d, p, q, dp, dq, inverseQ).GetRSA();
 		}
 	}
 }

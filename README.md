@@ -37,7 +37,7 @@
 
 项目里面需要引入程序集`System.Numerics`用来支持`BigInteger`，vs默认创建的项目是不会自动引入此程序集的，要手动引入。
 
-注：openssl `RSAPublicKey_out`导出的公钥，字节码内并不带[OID](http://www.oid-info.com/get/1.2.840.113549.1.1.1)（目测是因为不带OID所以openssl自己都不支持用这个公钥来加密数据），RSA_PEM支持此格式公钥的导入，但不提供此种格式公钥的导出。
+注：`openssl rsa -in 私钥文件 -pubout`导出的是PKCS#8格式公钥（用的比较多），`openssl rsa -pubin -in PKCS#8公钥文件 -RSAPublicKey_out`导出的是PKCS#1格式公钥（用的比较少）。
 
 
 ### 构造方法
@@ -64,7 +64,11 @@ bool：**HasPrivate**(是否包含私钥)
 
 **RSACryptoServiceProvider GetRSA()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。
 
-**string ToPEM(bool convertToPublic, bool usePKCS8)**：将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+**string ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8)**：将RSA中的密钥对转换成PEM格式。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响 。**privateUsePKCS8**：私钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PRIVATE KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PRIVATE KEY-----`），返回公钥时此参数无效；两种格式使用都比较常见。**publicUsePKCS8**：公钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PUBLIC KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PUBLIC KEY-----`），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式公钥似乎比较少见。
+
+**string ToPEM_PKCS1(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#1格式；似乎导出PKCS#1公钥用的比较少，PKCS#8的公钥用的多些，私钥#1#8都差不多。
+
+**string ToPEM_PKCS8(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#8格式。
 
 **string ToXML(bool convertToPublic)**：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
@@ -91,6 +95,10 @@ bool：**HasPrivate**(是否包含私钥)
 
 **RSA(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
 
+**RSA(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：本方法会先生成RSA_PEM再创建RSA。通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
+
+**RSA(byte[] modulus, byte[] exponent, byte[] dOrNull)**：本方法会先生成RSA_PEM再创建RSA。通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+
 
 ### 实例属性
 
@@ -105,11 +113,7 @@ bool：**HasPrivate**(是否包含私钥)
 
 **string ToXML(bool convertToPublic = false)**：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
 
-**string ToPEM_PKCS1(bool convertToPublic = false)**：导出`PEM PKCS#1格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
-
-**string ToPEM_PKCS8(bool convertToPublic = false)**：导出`PEM PKCS#8格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
-
-**RSA_PEM ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+**RSA_PEM ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响；通过RSA_PEM.ToPEM方法可以导出PEM文本。
 
 **string Encode(string str)**：加密操作，支持任意长度数据。
 
@@ -189,11 +193,10 @@ PEM格式中，每段数据基本上都是`type+长度数据占用位数+长度�
 内容前面要加0（可能现在全部是加0吧，数据结尾这个字节不满8位？什么情况下会出现不够1字节？不够就用二进制0补齐，然后内容前面加补了几位）。
 
 
-### PEM公钥编码格式
-`PKCS#1`、`PKCS#8`公钥编码都是统一的格式。
+### PEM PKCS#8公钥编码格式
 
 ```
-/*****1024位公钥*****/
+/*****1024位PKCS#8公钥*****/
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYw9+M3+REzDtYqwBrs/as/Oy8
 GRE5OmnqOV0EfkEiCIjiczbVEFnZ3qRjLbDATfmBxNQ6c6Fga8nX28glEH/aL/RG
@@ -201,7 +204,7 @@ GRE5OmnqOV0EfkEiCIjiczbVEFnZ3qRjLbDATfmBxNQ6c6Fga8nX28glEH/aL/RG
 RWdNQlpIaTDo5IhJJwIDAQAB
 -----END PUBLIC KEY-----
 
-/*****二进制表述*****/
+/*****二进制表述(文本是16进制下同)*****/
 30819F300D06092A864886F70D010101050003818D003081890281810098C3DF8CDFE444CC3B58AB006BB3F6ACFCECBC1911393A69EA395D047E41220888E27336D51059D9DEA4632DB0C04DF981C4D43A73A1606BC9D7DBC825107FDA2FF446D8A76923C28C52A280B3337276C1D27A1F4C48A71DE73812E0DB84D2EF9E47B081F243968A988B0D0998DFC929337EA945674D425A486930E8E48849270203010001
 
 
@@ -220,7 +223,6 @@ RWdNQlpIaTDo5IhJJwIDAQAB
 	, 05_NULL: "NULL，后面内容长度为0"
 	, 30_SEQUENCE:{
 		02_INTEGER: "整数"
-		, 02_INTEGER: "整数"
 		, 02_INTEGER: "整数"
 	}
 }
@@ -257,6 +259,33 @@ RWdNQlpIaTDo5IhJJwIDAQAB
 			/*RSA Exponent内容，和Modulus一样，但此处长度数据占用位数不存在*/
 			02 03 //02 INTEGER整数[02 INTEGER] [03 Exponent内容长x03字节]
 				010001
+```
+
+
+### PEM PKCS#1公钥编码格式
+
+```
+/*****1024位PKCS#1公钥*****/
+-----BEGIN RSA PUBLIC KEY-----
+MIGJAoGBAJjD34zf5ETMO1irAGuz9qz87LwZETk6aeo5XQR+QSIIiOJzNtUQWdne
+pGMtsMBN+YHE1DpzoWBrydfbyCUQf9ov9EbYp2kjwoxSooCzM3J2wdJ6H0xIpx3n
+OBLg24TS755HsIHyQ5aKmIsNCZjfySkzfqlFZ01CWkhpMOjkiEknAgMBAAE=
+-----END RSA PUBLIC KEY-----
+
+/*****二进制表述*****/
+3081890281810098C3DF8CDFE444CC3B58AB006BB3F6ACFCECBC1911393A69EA395D047E41220888E27336D51059D9DEA4632DB0C04DF981C4D43A73A1606BC9D7DBC825107FDA2FF446D8A76923C28C52A280B3337276C1D27A1F4C48A71DE73812E0DB84D2EF9E47B081F243968A988B0D0998DFC929337EA945674D425A486930E8E48849270203010001
+
+
+/*****二进制分解（和PKCS#8公钥格式就是只留了N、E两个数据，及其简单）*****/
+30 81 89
+
+	/*RSA Modulus*/
+	02 81 81
+		0098C3DF8CDFE444CC3B58AB006BB3F6ACFCECBC1911393A69EA395D047E41220888E27336D51059D9DEA4632DB0C04DF981C4D43A73A1606BC9D7DBC825107FDA2FF446D8A76923C28C52A280B3337276C1D27A1F4C48A71DE73812E0DB84D2EF9E47B081F243968A988B0D0998DFC929337EA945674D425A486930E8E4884927
+	
+	/*RSA Exponent*/
+	02 03
+		010001
 ```
 
 
@@ -398,7 +427,7 @@ openssl genrsa -out private.pem 1024
 ::提取公钥PKCS#8
 openssl rsa -in private.pem -pubout -out public.pem
 
-::转换成RSAPublicKey PKCS#1?
+::转换成RSAPublicKey PKCS#1
 openssl rsa -pubin -in public.pem -RSAPublicKey_out -out public.pem.rsakey
 
 ::加密
@@ -407,8 +436,8 @@ echo abcd123 | openssl rsautl -encrypt -inkey public.pem -pubin -out data.enc.bi
 ::解密
 openssl rsautl -decrypt -in data.enc.bin -inkey private.pem -out data.dec.txt
 
-::测试RSAPublicKey PKCS#1?，不出意外会出错
-::因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#1自动带上OID就能正常加密
+::测试RSAPublicKey PKCS#1，不出意外会出错
+::因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#8自动带上OID就能正常加密
 echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
 ```
 

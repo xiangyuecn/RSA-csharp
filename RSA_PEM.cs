@@ -295,7 +295,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 				//读取数据总长度
 				readLen(0x30);
 
-				//看看有没有oid
+				//检测PKCS8
 				var idx2 = idx;
 				if (eq(_SeqOID)) {
 					//读取1长度
@@ -363,11 +363,30 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 
 
-
 		/// <summary>
-		/// 将RSA中的密钥对转换成PEM格式，usePKCS8=false时返回PKCS#1格式，否则返回PKCS#8格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// 将RSA中的密钥对转换成PEM PKCS#1格式
+		/// 。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// 。公钥如：-----BEGIN RSA PUBLIC KEY-----，私钥如：-----BEGIN RSA PRIVATE KEY-----
+		/// 。似乎导出PKCS#1公钥用的比较少，PKCS#8的公钥用的多些，私钥#1#8都差不多
 		/// </summary>
-		public string ToPEM(bool convertToPublic, bool usePKCS8) {
+		public string ToPEM_PKCS1(bool convertToPublic = false) {
+			return ToPEM(convertToPublic, false, false);
+		}
+		/// <summary>
+		/// 将RSA中的密钥对转换成PEM PKCS#8格式
+		/// 。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// 。公钥如：-----BEGIN PUBLIC KEY-----，私钥如：-----BEGIN PRIVATE KEY-----
+		/// </summary>
+		public string ToPEM_PKCS8(bool convertToPublic = false) {
+			return ToPEM(convertToPublic, true, true);
+		}
+		/// <summary>
+		/// 将RSA中的密钥对转换成PEM格式
+		/// 。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// 。privateUsePKCS8：私钥的返回格式，等于true时返回PKCS#8格式（-----BEGIN PRIVATE KEY-----），否则返回PKCS#1格式（-----BEGIN RSA PRIVATE KEY-----），返回公钥时此参数无效；两种格式使用都比较常见
+		/// 。publicUsePKCS8：公钥的返回格式，等于true时返回PKCS#8格式（-----BEGIN PUBLIC KEY-----），否则返回PKCS#1格式（-----BEGIN RSA PUBLIC KEY-----），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式似乎比较少见公钥
+		/// </summary>
+		public string ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8) {
 			//https://www.jianshu.com/p/25803dd9527d
 			//https://www.cnblogs.com/ylz8401/p/8443819.html
 			//https://blog.csdn.net/jiayanhui2877/article/details/47187077
@@ -440,18 +459,22 @@ namespace com.github.xiangyuecn.rsacsharp {
 				ms.WriteByte(0x30);
 				var index1 = (int)ms.Length;
 
-				//固定内容
-				// encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"
-				writeAll(ms, _SeqOID);
+				//PKCS8 多一段数据
+				int index2 = -1, index3 = -1;
+				if (publicUsePKCS8) {
+					//固定内容
+					// encoded OID sequence for PKCS #1 rsaEncryption szOID_RSA_RSA = "1.2.840.113549.1.1.1"
+					writeAll(ms, _SeqOID);
 
-				//从0x00开始的后续长度
-				ms.WriteByte(0x03);
-				var index2 = (int)ms.Length;
-				ms.WriteByte(0x00);
+					//从0x00开始的后续长度
+					ms.WriteByte(0x03);
+					index2 = (int)ms.Length;
+					ms.WriteByte(0x00);
 
-				//后续内容长度
-				ms.WriteByte(0x30);
-				var index3 = (int)ms.Length;
+					//后续内容长度
+					ms.WriteByte(0x30);
+					index3 = (int)ms.Length;
+				}
 
 				//写入Modulus
 				writeBlock(Key_Modulus);
@@ -463,12 +486,18 @@ namespace com.github.xiangyuecn.rsacsharp {
 				//计算空缺的长度
 				var byts = ms.ToArray();
 
-				byts = writeLen(index3, byts);
-				byts = writeLen(index2, byts);
+				if (index2 != -1) {
+					byts = writeLen(index3, byts);
+					byts = writeLen(index2, byts);
+				}
 				byts = writeLen(index1, byts);
 
 
-				return "-----BEGIN PUBLIC KEY-----\n" + TextBreak(Convert.ToBase64String(byts), 64) + "\n-----END PUBLIC KEY-----";
+				var flag = " PUBLIC KEY";
+				if (!publicUsePKCS8) {
+					flag = " RSA" + flag;
+				}
+				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(byts), 64) + "\n-----END" + flag + "-----";
 			} else {
 				/****生成私钥****/
 
@@ -481,7 +510,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 				//PKCS8 多一段数据
 				int index2 = -1, index3 = -1;
-				if (usePKCS8) {
+				if (privateUsePKCS8) {
 					//固定内容
 					writeAll(ms, _SeqOID);
 
@@ -519,7 +548,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 
 				var flag = " PRIVATE KEY";
-				if (!usePKCS8) {
+				if (!privateUsePKCS8) {
 					flag = " RSA" + flag;
 				}
 				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(byts), 64) + "\n-----END" + flag + "-----";
