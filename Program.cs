@@ -78,6 +78,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			Console.WriteLine("◆◆◆◆◆◆◆◆◆◆◆◆ RSA测试 ◆◆◆◆◆◆◆◆◆◆◆◆");
 			Console.WriteLine("---------------------------------------------------------");
 
+			//for (var i = 0; i < 1000; i++) { Console.WriteLine("第"+i+"次>>>>>"); RSATest(); }
 			RSATest();
 
 			Console.WriteLine("-------------------------------------------------------------");

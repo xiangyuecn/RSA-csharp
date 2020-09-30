@@ -76,13 +76,14 @@ namespace com.github.xiangyuecn.rsacsharp {
 		public RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ) {
 			Key_Modulus = modulus;
 			Key_Exponent = exponent;
-			Key_D = d;
+			Key_D = BigL(d, modulus.Length);
 
-			Val_P = p;
-			Val_Q = q;
-			Val_DP = dp;
-			Val_DQ = dq;
-			Val_InverseQ = inverseQ;
+			int keyLen = modulus.Length / 2;
+			Val_P = BigL(p, keyLen);
+			Val_Q = BigL(q, keyLen);
+			Val_DP = BigL(dp, keyLen);
+			Val_DQ = BigL(dq, keyLen);
+			Val_InverseQ = BigL(inverseQ, keyLen);
 		}
 		/// <summary>
 		/// 通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同
@@ -97,7 +98,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			Key_Exponent = exponent;//publicExponent
 
 			if (dOrNull != null) {
-				Key_D = dOrNull;//privateExponent
+				Key_D = BigL(dOrNull, modulus.Length);//privateExponent
 
 				//反推P、Q
 				BigInteger n = BigX(modulus);
@@ -114,11 +115,12 @@ namespace com.github.xiangyuecn.rsacsharp {
 				BigInteger exp2 = d % (q - BigInteger.One);
 				BigInteger coeff = BigInteger.ModPow(q, p - 2, p);
 
-				Val_P = BigB(p);//prime1
-				Val_Q = BigB(q);//prime2
-				Val_DP = BigB(exp1);//exponent1
-				Val_DQ = BigB(exp2);//exponent2
-				Val_InverseQ = BigB(coeff);//coefficient
+				int keyLen = modulus.Length / 2;
+				Val_P = BigL(BigB(p), keyLen);//prime1
+				Val_Q = BigL(BigB(q), keyLen);//prime2
+				Val_DP = BigL(BigB(exp1), keyLen);//exponent1
+				Val_DQ = BigL(BigB(exp2), keyLen);//exponent2
+				Val_InverseQ = BigL(BigB(coeff), keyLen);//coefficient
 			}
 		}
 
@@ -182,6 +184,17 @@ namespace com.github.xiangyuecn.rsacsharp {
 				val = c;
 			}
 			return val;
+		}
+		/// <summary>
+		/// 某些密钥参数可能会少一位（32个byte只有31个，目测是密钥生成器的问题，只在c#生成的密钥中发现这种参数，java中生成的密钥没有这种现象），直接修正一下就行；这个问题与BigB有本质区别，不能动BigB
+		/// </summary>
+		static public byte[] BigL(byte[] bytes, int keyLen) {
+			if (keyLen - bytes.Length == 1) {
+				byte[] c = new byte[bytes.Length + 1];
+				Array.Copy(bytes, 0, c, 1, bytes.Length);
+				bytes = c;
+			}
+			return bytes;
 		}
 		/// <summary>
 		/// 由n e d 反推 P Q 
@@ -341,12 +354,14 @@ namespace com.github.xiangyuecn.rsacsharp {
 				//读取数据
 				param.Key_Modulus = readBlock();
 				param.Key_Exponent = readBlock();
-				param.Key_D = readBlock();
-				param.Val_P = readBlock();
-				param.Val_Q = readBlock();
-				param.Val_DP = readBlock();
-				param.Val_DQ = readBlock();
-				param.Val_InverseQ = readBlock();
+				int keyLen = param.Key_Modulus.Length;
+				param.Key_D = BigL(readBlock(), keyLen);
+				keyLen = keyLen / 2;
+				param.Val_P = BigL(readBlock(), keyLen);
+				param.Val_Q = BigL(readBlock(), keyLen);
+				param.Val_DP = BigL(readBlock(), keyLen);
+				param.Val_DQ = BigL(readBlock(), keyLen);
+				param.Val_InverseQ = BigL(readBlock(), keyLen);
 			} else {
 				throw new Exception("pem需要BEGIN END标头");
 			}

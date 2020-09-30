@@ -418,6 +418,18 @@ yZKNX3VxmLEHXQ==
 ```
 
 
+## Bug:C#生成的非正常密钥
+RSACryptoServiceProvider生成的密钥，有一定概率生成某些字段首字节为0的密钥（测试时发现几百个里面有一个），解析这种数据就难搞了，Java生成的密钥就没有出现这种情况。直接放2个样本吧，这两个样本是有效的密钥：
+```
+样本一：D参数首字节是0
+<RSAKeyValue><Modulus>3pfIaO4DYwrsymg7xddlr2gN2rtl2C+H3+RX6Nc3GQMJ+otZn5exMg5cMIWe+aS3mWB9XJi9AxlRdRAFf4j1PQ==</Modulus><Exponent>AQAB</Exponent><P>/nSZaBqEGehINeMa805aAqjNOhlHNYGZmF/C4evMvsc=</P><Q>3/GsDJA/AnKq/lqbpCr1OB5h2wIKsLlPGafPljFzN9s=</Q><DP>CSHGH6ZT91oOvWBZJ0I4mL/WHa+qjpEIIh/Nrq33uyE=</DP><DQ>nIg/m3SEJoDiVvIcko7YYwaRndT6hfaxfJxYtIISKDs=</DQ><InverseQ>rok4ds5VOzho0h+4uvTeeOjEL1jxDaarUlnb3gxB6yY=</InverseQ><D>ADQrXs04+5I6/URzKY807KAvww+A3F3OxgmzeucXidJSc+RMfVzkdf30X2iJHTj20EpzSfwCnlRNERCYXIqskQ==</D></RSAKeyValue>
+
+样本二：DP参数首字节是0
+<RSAKeyValue><Modulus>zbTQkRxbyJfCYnEzUjG3rWWRCpWYka5rWmnkqPXCYvLdZ5OIJEy+2Rgu9wCAnCdCBWMRLdUWjmJdNQizBcITVQ==</Modulus><Exponent>AQAB</Exponent><P>+N3qwya7gWN568BuciUwkSlgWVlORusk267Nkkiu3jc=</P><Q>05o0BiIaDFYtHYNUh5/ROgDSkWqPXjy8Nlmh0S6QdNM=</Q><DP>AJemo2hIMfqmo6UFnkfwYagTjqLjyM9uewdjfeGmaOk=</DP><DQ>ZK3D/v8Owbvm71njSDxkQmLNzV6UJFRlgL6Y3Xx4Qv0=</DQ><InverseQ>zHAAUftduljSvsxV0TAblEX+FUXw3unb3M6oaow7+R0=</InverseQ><D>n7XqVTAiZuzFBG+FfCSTynHYGdKqITm9qfYbjb85zF4EWxZWdMjm/9V2guKbRYGV9Xo96PowNnjeJ+NkbG5B5Q==</D></RSAKeyValue>
+```
+
+> 这几个问题是QQ:284485094 提出的，循环一下测试很容易出现这个现象，现在的代码已经兼容了这种密钥。
+
 
 ## openssl RSA常用命令行
 ``` bat
