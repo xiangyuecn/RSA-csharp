@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace com.github.xiangyuecn.rsacsharp {
 	/// <summary>
-	/// RSA PEM格式密钥对的解析和导出
+	/// RSA PEM格式密钥对的解析和导出，.NET Core、.NET Framework均可用
 	/// GitHub: https://github.com/xiangyuecn/RSA-csharp
 	/// </summary>
 	public class RSA_PEM {
@@ -27,23 +27,23 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 		//以下参数只有私钥才有 https://docs.microsoft.com/zh-cn/dotnet/api/system.security.cryptography.rsaparameters?redirectedfrom=MSDN&view=netframework-4.8
 		/// <summary>
-		/// prime1
+		/// prime1，只有私钥的时候才有
 		/// </summary>
 		public byte[] Val_P;
 		/// <summary>
-		/// prime2
+		/// prime2，只有私钥的时候才有
 		/// </summary>
 		public byte[] Val_Q;
 		/// <summary>
-		/// exponent1
+		/// exponent1，只有私钥的时候才有
 		/// </summary>
 		public byte[] Val_DP;
 		/// <summary>
-		/// exponent2
+		/// exponent2，只有私钥的时候才有
 		/// </summary>
 		public byte[] Val_DQ;
 		/// <summary>
-		/// coefficient
+		/// coefficient，只有私钥的时候才有
 		/// </summary>
 		public byte[] Val_InverseQ;
 
@@ -52,9 +52,16 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// <summary>
 		/// 通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响
 		/// </summary>
-		public RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false) {
-			var isPublic = convertToPublic || rsa.PublicOnly;
-			var param = rsa.ExportParameters(!isPublic);
+		public RSA_PEM(RSA rsa, bool convertToPublic = false) {
+			var param = rsa.ExportParameters(false);
+			if (!convertToPublic) {
+				if (!(rsa is RSACryptoServiceProvider) || !((RSACryptoServiceProvider)rsa).PublicOnly) {
+					try { //公钥时，填true可能会抛异常
+						param = rsa.ExportParameters(true);
+					} catch (Exception) { }
+				}
+			}
+			var isPublic = convertToPublic || param.D == null;
 
 			Key_Modulus = param.Modulus;
 			Key_Exponent = param.Exponent;
@@ -76,14 +83,17 @@ namespace com.github.xiangyuecn.rsacsharp {
 		public RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ) {
 			Key_Modulus = modulus;
 			Key_Exponent = exponent;
-			Key_D = BigL(d, modulus.Length);
 
-			int keyLen = modulus.Length / 2;
-			Val_P = BigL(p, keyLen);
-			Val_Q = BigL(q, keyLen);
-			Val_DP = BigL(dp, keyLen);
-			Val_DQ = BigL(dq, keyLen);
-			Val_InverseQ = BigL(inverseQ, keyLen);
+			if (d != null) {
+				Key_D = BigL(d, modulus.Length);
+
+				int keyLen = modulus.Length / 2;
+				Val_P = BigL(p, keyLen);
+				Val_Q = BigL(q, keyLen);
+				Val_DP = BigL(dp, keyLen);
+				Val_DQ = BigL(dq, keyLen);
+				Val_InverseQ = BigL(inverseQ, keyLen);
+			}
 		}
 		/// <summary>
 		/// 通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同
@@ -141,13 +151,25 @@ namespace com.github.xiangyuecn.rsacsharp {
 			}
 		}
 		/// <summary>
-		/// 将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥
+		/// 将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。返回的RSA支持跨平台使用，但只支持在.NET Core环境中使用
 		/// </summary>
-		public RSACryptoServiceProvider GetRSA() {
+		public RSA GetRSA_ForCore() {
+			RSA rsa = RSA.Create();
+			setToRSA(rsa);
+			return rsa;
+		}
+		/// <summary>
+		/// 将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。.NET Core、.NET Framework均可用，但返回的RSACryptoServiceProvider不支持跨平台，所以只支持在Windows系统中使用
+		/// </summary>
+		public RSACryptoServiceProvider GetRSA_ForWindows() {
 			var rsaParams = new CspParameters();
 			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
 			var rsa = new RSACryptoServiceProvider(rsaParams);
 
+			setToRSA(rsa);
+			return rsa;
+		}
+		private void setToRSA(RSA rsa) {
 			var param = new RSAParameters();
 			param.Modulus = Key_Modulus;
 			param.Exponent = Key_Exponent;
@@ -160,7 +182,6 @@ namespace com.github.xiangyuecn.rsacsharp {
 				param.InverseQ = Val_InverseQ;
 			}
 			rsa.ImportParameters(param);
-			return rsa;
 		}
 		/// <summary>
 		/// 转成正整数，如果是负数，需要加前导0转成正整数

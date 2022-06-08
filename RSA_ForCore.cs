@@ -5,15 +5,15 @@ using System.Text;
 
 namespace com.github.xiangyuecn.rsacsharp {
 	/// <summary>
-	/// RSA操作类
+	/// RSA操作类，只支持.NET Core环境，可跨平台使用。如需在.NET Framework中使用，请用RSA_ForWindows（也支持.NET Core，但只能Windows系统中使用）
 	/// GitHub: https://github.com/xiangyuecn/RSA-csharp
 	/// </summary>
-	public class RSA {
+	public class RSA_ForCore {
 		/// <summary>
 		/// 导出XML格式密钥对，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
 		/// </summary>
 		public string ToXML(bool convertToPublic = false) {
-			return rsa.ToXmlString(!rsa.PublicOnly && !convertToPublic);
+			return ToPEM(convertToPublic).ToXML(convertToPublic);
 		}
 		/// <summary>
 		/// 将密钥对导出成PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
@@ -37,7 +37,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 		public byte[] Encode(byte[] data) {
 			int blockLen = rsa.KeySize / 8 - 11;
 			if (data.Length <= blockLen) {
-				return rsa.Encrypt(data, false);
+				return rsa.Encrypt(data, RSAEncryptionPadding.Pkcs1);
 			}
 
 			using (var dataStream = new MemoryStream(data))
@@ -49,7 +49,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 					Byte[] block = new Byte[len];
 					Array.Copy(buffer, 0, block, 0, len);
 
-					Byte[] enBlock = rsa.Encrypt(block, false);
+					Byte[] enBlock = rsa.Encrypt(block, RSAEncryptionPadding.Pkcs1);
 					enStream.Write(enBlock, 0, enBlock.Length);
 
 					len = dataStream.Read(buffer, 0, blockLen);
@@ -83,7 +83,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			try {
 				int blockLen = rsa.KeySize / 8;
 				if (data.Length <= blockLen) {
-					return rsa.Decrypt(data, false);
+					return rsa.Decrypt(data, RSAEncryptionPadding.Pkcs1);
 				}
 
 				using (var dataStream = new MemoryStream(data))
@@ -95,7 +95,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 						Byte[] block = new Byte[len];
 						Array.Copy(buffer, 0, block, 0, len);
 
-						Byte[] deBlock = rsa.Decrypt(block, false);
+						Byte[] deBlock = rsa.Decrypt(block, RSAEncryptionPadding.Pkcs1);
 						deStream.Write(deBlock, 0, deBlock.Length);
 
 						len = dataStream.Read(buffer, 0, blockLen);
@@ -117,25 +117,25 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// 对data进行签名，并指定hash算法（如：SHA256）
 		/// </summary>
 		public byte[] Sign(string hash, byte[] data) {
-			return rsa.SignData(data, hash);
+			return rsa.SignData(data, new HashAlgorithmName(hash), RSASignaturePadding.Pkcs1);
 		}
 		/// <summary>
-		/// 验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）
+		/// 验证字符串str的签名是否是sign，并指定hash算法（如：SHA256）
 		/// </summary>
-		public bool Verify(string hash, string sgin, string str) {
+		public bool Verify(string hash, string sign, string str) {
 			byte[] byts = null;
-			try { byts = Convert.FromBase64String(sgin); } catch { }
+			try { byts = Convert.FromBase64String(sign); } catch { }
 			if (byts == null) {
 				return false;
 			}
 			return Verify(hash, byts, Encoding.UTF8.GetBytes(str));
 		}
 		/// <summary>
-		/// 验证data的签名是否是sgin，并指定hash算法（如：SHA256）
+		/// 验证data的签名是否是sign，并指定hash算法（如：SHA256）
 		/// </summary>
-		public bool Verify(string hash, byte[] sgin, byte[] data) {
+		public bool Verify(string hash, byte[] sign, byte[] data) {
 			try {
-				return rsa.VerifyData(data, hash, sgin);
+				return rsa.VerifyData(data, sign, new HashAlgorithmName(hash), RSASignaturePadding.Pkcs1);
 			} catch {
 				return false;
 			}
@@ -144,11 +144,10 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 
 
-		private RSACryptoServiceProvider rsa;
 		/// <summary>
-		/// 最底层的RSACryptoServiceProvider对象
+		/// 最底层的RSA对象
 		/// </summary>
-		public RSACryptoServiceProvider RSAObject {
+		public RSA RSAObject {
 			get {
 				return rsa;
 			}
@@ -167,39 +166,32 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// </summary>
 		public bool HasPrivate {
 			get {
-				return !rsa.PublicOnly;
+				return ToPEM().HasPrivate;
 			}
 		}
 
 		/// <summary>
-		/// 用指定密钥大小创建一个新的RSA，出错抛异常
+		/// 用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常
 		/// </summary>
-		public RSA(int keySize) {
-			var rsaParams = new CspParameters();
-			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
-			rsa = new RSACryptoServiceProvider(keySize, rsaParams);
+		public RSA_ForCore(int keySize) {
+			rsa = RSA.Create();
+			rsa.KeySize = keySize;
 		}
 		/// <summary>
-		/// 通过指定的密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常
+		/// 通过指定的pem文件密钥或xml字符串密钥，创建一个RSA，pem或xml内可以只包含一个公钥或私钥，或都包含，出错抛异常
 		/// </summary>
-		public RSA(string xml) {
-			var rsaParams = new CspParameters();
-			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
-			rsa = new RSACryptoServiceProvider(rsaParams);
-
-			rsa.FromXmlString(xml);
-		}
-		/// <summary>
-		/// 通过一个pem文件创建RSA，pem为公钥或私钥，出错抛异常
-		/// </summary>
-		public RSA(string pem, bool noop) {
-			rsa = RSA_PEM.FromPEM(pem).GetRSA();
+		public RSA_ForCore(string pemOrXML) {
+			if (pemOrXML.Trim().StartsWith("<")) {
+				rsa = RSA_PEM.FromXML(pemOrXML).GetRSA_ForCore();
+			} else {
+				rsa = RSA_PEM.FromPEM(pemOrXML).GetRSA_ForCore();
+			}
 		}
 		/// <summary>
 		/// 通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常
 		/// </summary>
-		public RSA(RSA_PEM pem) {
-			rsa = pem.GetRSA();
+		public RSA_ForCore(RSA_PEM pem) {
+			rsa = pem.GetRSA_ForCore();
 		}
 		/// <summary>
 		/// 本方法会先生成RSA_PEM再创建RSA：通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同
@@ -209,15 +201,29 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// <param name="modulus">必须提供模数</param>
 		/// <param name="exponent">必须提供公钥指数</param>
 		/// <param name="dOrNull">私钥指数可以不提供，导出的PEM就只包含公钥</param>
-		public RSA(byte[] modulus, byte[] exponent, byte[] dOrNull) {
-			rsa = new RSA_PEM(modulus, exponent, dOrNull).GetRSA();
+		public RSA_ForCore(byte[] modulus, byte[] exponent, byte[] dOrNull) {
+			rsa = new RSA_PEM(modulus, exponent, dOrNull).GetRSA_ForCore();
 		}
 		/// <summary>
 		/// 本方法会先生成RSA_PEM再创建RSA：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）
 		/// 注意：所有参数首字节如果是0，必须先去掉
 		/// </summary>
-		public RSA(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ) {
-			rsa = new RSA_PEM(modulus, exponent, d, p, q, dp, dq, inverseQ).GetRSA();
+		public RSA_ForCore(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ) {
+			rsa = new RSA_PEM(modulus, exponent, d, p, q, dp, dq, inverseQ).GetRSA_ForCore();
 		}
+
+
+
+		//.NET Framework 兼容编译
+#if (NETCOREAPP || NETSTANDARD || NET) //https://docs.microsoft.com/zh-cn/dotnet/csharp/language-reference/preprocessor-directives
+		private RSA rsa;
+		static public bool IS_CORE = true;
+#else
+		private dynamic rsa;
+		static public bool IS_CORE = false;
+		class RSAEncryptionPadding { static public object Pkcs1; }
+		class RSASignaturePadding { static public object Pkcs1; }
+		class HashAlgorithmName { public HashAlgorithmName(string _) { } }
+#endif
 	}
 }

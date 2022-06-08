@@ -1,13 +1,25 @@
+**【[源GitHub仓库](https://github.com/xiangyuecn/RSA-csharp)】 | 【[Gitee镜像库](https://gitee.com/xiangyuecn/RSA-csharp)】如果本文档图片没有显示，请手动切换到Gitee镜像库阅读文档。**
+
 # :open_book:RSA-csharp的帮助文档
 
 本项目核心功能：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
 
-底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了一个RSA封装操作类，和一个测试控制台程序。
+你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSA`或`RSACryptoServiceProvider`的能力。也可以clone整个项目代码用vs直接打开进行测试。
 
-你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSACryptoServiceProvider`的能力。clone整个项目代码用vs应该能够直接打开，经目测看起来没什么卵用的文件都svn:ignore掉了（svn滑稽。
+底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了两个RSA封装操作类（`RSA_ForCore.cs`、`RSA_ForWindows.cs`），和一个测试控制台程序（`Program.cs`）。
+
+源文件|平台支持|功能说明|限制
+:-:|:-:|:-|:-
+**RSA_PEM.cs**|.NET Core、.NET Framework|用于解析和导出PEM，创建RSA实例|无
+**RSA_ForWindows.cs**|.NET Core、.NET Framework|RSA操作类，封装了加密、解密、验签|只支持在Windows系统中使用，因为使用的RSACryptoServiceProvider不支持跨平台
+**RSA_ForCore.cs**|.NET Core|RSA操作类，封装了加密、解密、验签|只支持.NET Core环境，可跨平台使用
+
+**如需功能定制，网站、App、小程序开发等需求，请加本文档下面的QQ群，联系群主（即作者），谢谢~**
 
 【Java版】：[RSA-java](https://github.com/xiangyuecn/RSA-java)
 
+
+[​](?)
 
 ## 特性
 
@@ -21,6 +33,45 @@
 - `PEM格式`秘钥对和`XML格式`秘钥对互转
 
 
+[​](?)
+
+## 如何加密、解密、签名、校验
+得到了RSA_PEM后，加密解密就异常简单了，没那么多啰嗦难懂的代码：
+``` c#
+//先解析pem，公钥私钥都行，如果是xml就用 RSA_PEM.FromXML("<RSAKeyValue><Modulus>....</RSAKeyValue>")
+var pem=RSA_PEM.FromPEM("-----BEGIN XXX KEY-----..此处意思意思..-----END XXX KEY-----");
+
+//直接创建RSA操作类
+var rsa=new RSA_ForWindows(pem); //这个只能在Windows系统里面运行
+//var rsa=new RSA_ForCore(pem); //这个支持跨平台，但只支持.NET Core
+
+//var rsa=new RSA_ForWindows(2048); //也可以直接生成新密钥，rsa.ToPEM()得到pem对象
+//var rsa=new RSA_ForCore(2048); 
+
+//加密
+var enTxt=rsa.Encode("测试123");
+
+//解密
+var deTxt=rsa.DecodeOrNull(enTxt);
+
+//签名
+var sign=rsa.Sign("SHA1", "测试123");
+
+//校验签名
+var isVerify=rsa.Verify("SHA1", sign, "测试123");
+
+//导出pem文本
+var pemTxt=rsa.ToPEM().ToPEM_PKCS8();
+
+Console.WriteLine(pemTxt+"\n"+enTxt+"\n"+deTxt+"\n"+sign+"\n"+isVerify);
+Console.ReadLine();
+//****更多的实例，请阅读 Program.cs****
+//****更多功能方法，请阅读下面的详细文档****
+```
+
+
+
+[​](?)
 
 ## 【QQ群】交流与支持
 
@@ -30,26 +81,41 @@
 
 
 
+
+
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
 # :open_book:文档
 
 ## 【RSA_PEM.cs】
 此文件不依赖任何文件，可以直接copy这个文件到你项目中用；通过`FromPEM`、`ToPEM` 和`FromXML`、`ToXML`这两对方法，可以实现PEM`PKCS#1`、`PKCS#8`相互转换，PEM、XML的相互转换。
 
-项目里面需要引入程序集`System.Numerics`用来支持`BigInteger`，vs默认创建的项目是不会自动引入此程序集的，要手动引入。
+Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteger`，vs默认创建的项目是不会自动引入此程序集的，要手动引入，Core的不需要。
 
 注：`openssl rsa -in 私钥文件 -pubout`导出的是PKCS#8格式公钥（用的比较多），`openssl rsa -pubin -in PKCS#8公钥文件 -RSAPublicKey_out`导出的是PKCS#1格式公钥（用的比较少）。
 
 
 ### 静态方法
 
-**static RSA_PEM FromPEM(string pem)**：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+`RSA_PEM` **FromPEM(string pem)**：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
-**static RSA_PEM FromXML(string xml)**：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。xml格式如：`<RSAKeyValue><Modulus>....</RSAKeyValue>`。
+`RSA_PEM` **FromXML(string xml)**：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。xml格式如：`<RSAKeyValue><Modulus>....</RSAKeyValue>`。
 
 
 ### 构造方法
 
-**RSA_PEM(RSACryptoServiceProvider rsa, bool convertToPublic = false)**：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
+**RSA_PEM(RSA rsa, bool convertToPublic = false)**：通过RSA中的公钥和私钥构造一个PEM，如果convertToPublic含私钥的RSA将只读取公钥，仅含公钥的RSA不受影响。
 
 **RSA_PEM(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
 
@@ -58,83 +124,97 @@
 
 ### 实例属性
 
-byte[]：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
+`byte[]`：**Key_Modulus**(模数n，公钥、私钥都有)、**Key_Exponent**(公钥指数e，公钥、私钥都有)、**Key_D**(私钥指数d，只有私钥的时候才有)；有这3个足够用来加密解密。
 
-byte[]：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_DQ**(exponent2)、**Val_InverseQ**(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
+`byte[]`：**Val_P**(prime1)、**Val_Q**(prime2)、**Val_DP**(exponent1)、**Val_DQ**(exponent2)、**Val_InverseQ**(coefficient)； (PEM中的私钥才有的更多的数值；可通过n、e、d反推出这些值（只是反推出有效值，和原始的值大概率不同）)。
 
-int：**KeySize**(密钥位数)
+`int` **KeySize**：密钥位数。
 
-bool：**HasPrivate**(是否包含私钥)
+`bool` **HasPrivate**：是否包含私钥。
 
 
 ### 实例方法
 
-**RSACryptoServiceProvider GetRSA()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。
+`RSA` **GetRSA_ForCore()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。返回的RSA支持跨平台使用，但只支持在.NET Core环境中使用。
 
-**string ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8)**：将RSA中的密钥对转换成PEM格式。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响 。**privateUsePKCS8**：私钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PRIVATE KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PRIVATE KEY-----`），返回公钥时此参数无效；两种格式使用都比较常见。**publicUsePKCS8**：公钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PUBLIC KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PUBLIC KEY-----`），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式公钥似乎比较少见。
+`RSACryptoServiceProvider` **GetRSA_ForWindows()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。.NET Core、.NET Framework均可用，但返回的RSACryptoServiceProvider不支持跨平台，所以只支持在Windows系统中使用。
 
-**string ToPEM_PKCS1(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#1格式；似乎导出PKCS#1公钥用的比较少，PKCS#8的公钥用的多些，私钥#1#8都差不多。
+`string` **ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8)**：将RSA中的密钥对转换成PEM格式。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响 。**privateUsePKCS8**：私钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PRIVATE KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PRIVATE KEY-----`），返回公钥时此参数无效；两种格式使用都比较常见。**publicUsePKCS8**：公钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PUBLIC KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PUBLIC KEY-----`），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式公钥似乎比较少见。
 
-**string ToPEM_PKCS8(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#8格式。
+`string` **ToPEM_PKCS1(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#1格式；似乎导出PKCS#1公钥用的比较少，PKCS#8的公钥用的多些，私钥#1#8都差不多。
 
-**string ToXML(bool convertToPublic)**：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
+`string` **ToPEM_PKCS8(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#8格式。
+
+`string` **ToXML(bool convertToPublic)**：将RSA中的密钥对转换成XML格式，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
 
 
 
-## 【RSA.cs】
-此文件依赖`RSA_PEM.cs`，封装了加密、解密、签名、验证、秘钥导入导出操作。
+## 【RSA_ForWindows.cs】【RSA_ForCore.cs】
+这两文件依赖`RSA_PEM.cs`，两个类的方法都是相同的（未做抽象，因为懒，要用那个就直接用哪个），封装了加密、解密、签名、验证、秘钥导入导出操作。
 
 ### 构造方法
 
-**RSA(int keySize)**：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
+**RSA_For??(int keySize)**：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
 
-**RSA(string xml)**：通过XML格式密钥，创建一个RSA，xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`
+**RSA_For??(string pemOrXML)**：通过`PEM格式`或`XML格式`密钥，创建一个RSA，pem或xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`。pem支持`PKCS#1`、`PKCS#8`格式，格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
-**RSA(string pem, bool noop)**：通过`PEM格式`密钥对创建RSA（noop参数随意填），PEM可以是公钥或私钥，支持`PKCS#1`、`PKCS#8`格式，pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+**RSA_For??(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
 
-**RSA(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
+**RSA_For??(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：本方法会先生成RSA_PEM再创建RSA。通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
 
-**RSA(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：本方法会先生成RSA_PEM再创建RSA。通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
-
-**RSA(byte[] modulus, byte[] exponent, byte[] dOrNull)**：本方法会先生成RSA_PEM再创建RSA。通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+**RSA_For??(byte[] modulus, byte[] exponent, byte[] dOrNull)**：本方法会先生成RSA_PEM再创建RSA。通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
 
 
 ### 实例属性
 
-RSACryptoServiceProvider：**RSAObject**(最底层的RSACryptoServiceProvider对象)
+`RSA`|`RSACryptoServiceProvider` **RSAObject**：最底层的RSA或RSACryptoServiceProvider对象。
 
-int：**KeySize**(密钥位数)
+`int` **KeySize**：密钥位数。
 
-bool：**HasPrivate**(是否包含私钥)
+`bool` **HasPrivate**：是否包含私钥。
 
 
 ### 实例方法
 
-**string ToXML(bool convertToPublic = false)**：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
+`string` **ToXML(bool convertToPublic = false)**：导出`XML格式`秘钥对。如果RSA包含私钥，默认会导出私钥，设置仅仅导出公钥时只会导出公钥；不包含私钥只会导出公钥。
 
-**RSA_PEM ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象，如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响；通过RSA_PEM.ToPEM方法可以导出PEM文本。
+`RSA_PEM` **ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象（然后可以通过RSA_PEM.ToPEM方法导出PEM文本），如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
-**string Encode(string str)**：加密操作，支持任意长度数据。
+`string` **Encode(string str)**：加密操作，支持任意长度数据，出错抛异常。
 
-**byte[] Encode(byte[] data)**：加密数据，支持任意长度数据，出错抛异常。
+`byte[]` **Encode(byte[] data)**：加密数据，支持任意长度数据，出错抛异常。
 
-**string DecodeOrNull(string str)**：解密字符串（utf-8），解密异常返回null。
+`string` **DecodeOrNull(string str)**：解密字符串（utf-8），解密异常返回null。
 
-**byte[] DecodeOrNull(byte[] data)**：解密数据，解密异常返回null。
+`byte[]` **DecodeOrNull(byte[] data)**：解密数据，解密异常返回null。
 
-**string Sign(string hash, string str)**：对str进行签名，并指定hash算法（如：SHA256）。
+`string` **Sign(string hash, string str)**：对str进行签名，并指定hash算法（如：SHA256）。
 
-**byte[] Sign(string hash, byte[] data)**：对data进行签名，并指定hash算法（如：SHA256）。
+`byte[]` **Sign(string hash, byte[] data)**：对data进行签名，并指定hash算法（如：SHA256）。
 
-**bool Verify(string hash, string sgin, string str)**：验证字符串str的签名是否是sgin，并指定hash算法（如：SHA256）。
+`bool` **Verify(string hash, string sign, string str)**：验证字符串str的签名是否是sign，并指定hash算法（如：SHA256）。
 
-**bool Verify(string hash, byte[] sgin, byte[] data)**：验证data的签名是否是sgin，并指定hash算法（如：SHA256）。
-
-
+`bool` **Verify(string hash, byte[] sign, byte[] data)**：验证data的签名是否是sign，并指定hash算法（如：SHA256）。
 
 
 
+
+
+
+
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
 
 # :open_book:图例
 
@@ -149,6 +229,20 @@ RSA工具（非开源）：
 
 
 
+
+
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
+
+[​](?)
 
 # :open_book:知识库
 
@@ -455,6 +549,12 @@ echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
 
 
 
+
+[​](?)
+
+[​](?)
+
+[​](?)
 
 # :star:捐赠
 如果这个库有帮助到您，请 Star 一下。
