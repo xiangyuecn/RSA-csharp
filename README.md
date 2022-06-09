@@ -6,13 +6,13 @@
 
 你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSA`或`RSACryptoServiceProvider`的能力。也可以clone整个项目代码用vs直接打开进行测试。
 
-底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了两个RSA封装操作类（`RSA_ForCore.cs`、`RSA_ForWindows.cs`），和一个测试控制台程序（`Program.cs`）。
+底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了一个RSA封装操作类（`RSA_Util.cs`），和一个测试控制台程序（`Program.cs`）。
 
-源文件|平台支持|功能说明|限制
+源文件|平台支持|功能说明|依赖项
 :-:|:-:|:-|:-
 **RSA_PEM.cs**|.NET Core、.NET Framework|用于解析和导出PEM，创建RSA实例|无
-**RSA_ForWindows.cs**|.NET Core、.NET Framework|RSA操作类，封装了加密、解密、验签|只支持在Windows系统中使用，因为使用的RSACryptoServiceProvider不支持跨平台
-**RSA_ForCore.cs**|.NET Core|RSA操作类，封装了加密、解密、验签|只支持.NET Core环境，可跨平台使用
+**RSA_Util.cs**|.NET Core、.NET Framework|RSA操作类，封装了加密、解密、验签|RSA_PEM
+Program.cs|.NET Core、.NET Framework|测试控制台程序|RSA_PEM、RSA_Util
 
 **如需功能定制，网站、App、小程序开发等需求，请加本文档下面的QQ群，联系群主（即作者），谢谢~**
 
@@ -42,11 +42,8 @@
 var pem=RSA_PEM.FromPEM("-----BEGIN XXX KEY-----..此处意思意思..-----END XXX KEY-----");
 
 //直接创建RSA操作类
-var rsa=new RSA_ForWindows(pem); //这个只能在Windows系统里面运行
-//var rsa=new RSA_ForCore(pem); //这个支持跨平台，但只支持.NET Core
-
-//var rsa=new RSA_ForWindows(2048); //也可以直接生成新密钥，rsa.ToPEM()得到pem对象
-//var rsa=new RSA_ForCore(2048); 
+var rsa=new RSA_Util(pem);
+//var rsa=new RSA_Util(2048); //也可以直接生成新密钥，rsa.ToPEM()得到pem对象
 
 //加密
 var enTxt=rsa.Encode("测试123");
@@ -150,25 +147,27 @@ Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteg
 
 
 
-## 【RSA_ForWindows.cs】【RSA_ForCore.cs】
-这两文件依赖`RSA_PEM.cs`，两个类的方法都是相同的（未做抽象，因为懒，要用那个就直接用哪个），封装了加密、解密、签名、验证、秘钥导入导出操作。
+## 【RSA_Util.cs】
+这个文件依赖`RSA_PEM.cs`，封装了加密、解密、签名、验证、秘钥导入导出操作；.NET Core下由实际的RSA实现类提供支持，.NET Framework下由RSACryptoServiceProvider提供支持。
 
 ### 构造方法
 
-**RSA_For??(int keySize)**：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
+**RSA_Util(int keySize)**：用指定密钥大小创建一个新的RSA，会生成新密钥，出错抛异常。
 
-**RSA_For??(string pemOrXML)**：通过`PEM格式`或`XML格式`密钥，创建一个RSA，pem或xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`。pem支持`PKCS#1`、`PKCS#8`格式，格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
+**RSA_Util(string pemOrXML)**：通过`PEM格式`或`XML格式`密钥，创建一个RSA，pem或xml内可以只包含一个公钥或私钥，或都包含，出错抛异常。`XML格式`如：`<RSAKeyValue><Modulus>...</RSAKeyValue>`。pem支持`PKCS#1`、`PKCS#8`格式，格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
-**RSA_For??(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
+**RSA_Util(RSA_PEM pem)**：通过一个pem对象创建RSA，pem为公钥或私钥，出错抛异常。
 
-**RSA_For??(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：本方法会先生成RSA_PEM再创建RSA。通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
+**RSA_Util(byte[] modulus, byte[] exponent, byte[] d, byte[] p, byte[] q, byte[] dp, byte[] dq, byte[] inverseQ)**：本方法会先生成RSA_PEM再创建RSA。通过全量的PEM字段数据构造一个PEM，除了模数modulus和公钥指数exponent必须提供外，其他私钥指数信息要么全部提供，要么全部不提供（导出的PEM就只包含公钥）注意：所有参数首字节如果是0，必须先去掉。
 
-**RSA_For??(byte[] modulus, byte[] exponent, byte[] dOrNull)**：本方法会先生成RSA_PEM再创建RSA。通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
+**RSA_Util(byte[] modulus, byte[] exponent, byte[] dOrNull)**：本方法会先生成RSA_PEM再创建RSA。通过公钥指数和私钥指数构造一个PEM，会反推计算出P、Q但和原始生成密钥的P、Q极小可能相同。注意：所有参数首字节如果是0，必须先去掉。出错将会抛出异常。私钥指数可以不提供，导出的PEM就只包含公钥。
 
 
 ### 实例属性
 
-`RSA`|`RSACryptoServiceProvider` **RSAObject**：最底层的RSA或RSACryptoServiceProvider对象。
+`RSA` **RSAObject**：最底层的RSA对象，.NET Core下为实际的RSA实现类，.NET Framework下RSACryptoServiceProvider。
+
+`bool` **RSAIsUseCore**：最底层的RSA对象是否是使用的rsaCore（RSA），否则将是使用的rsaFramework（RSACryptoServiceProvider）。
 
 `int` **KeySize**：密钥位数。
 

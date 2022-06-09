@@ -47,8 +47,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RSA_ForWindows.cs" />
-    <Compile Include="RSA_ForCore.cs" />
+    <Compile Include="RSA_Util.cs" />
     <Compile Include="RSA_PEM.cs" />
   </ItemGroup>
   <ItemGroup />

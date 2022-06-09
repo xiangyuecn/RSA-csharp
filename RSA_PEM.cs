@@ -154,6 +154,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// 将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。返回的RSA支持跨平台使用，但只支持在.NET Core环境中使用
 		/// </summary>
 		public RSA GetRSA_ForCore() {
+			RSACryptoServiceProvider.UseMachineKeyStore = true;
 			RSA rsa = RSA.Create();
 			setToRSA(rsa);
 			return rsa;
