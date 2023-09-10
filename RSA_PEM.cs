@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace com.github.xiangyuecn.rsacsharp {
 	/// <summary>
@@ -154,9 +155,11 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// 将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。返回的RSA支持跨平台使用，但只支持在.NET Core环境中使用
 		/// </summary>
 		public RSA GetRSA_ForCore() {
-			RSACryptoServiceProvider.UseMachineKeyStore = true;
 			RSA rsa = RSA.Create();
-			setToRSA(rsa);
+			if (rsa is RSACryptoServiceProvider) {
+				return GetRSA_ForWindows();
+			}
+			GetRSA__ImportParameters(rsa);
 			return rsa;
 		}
 		/// <summary>
@@ -167,10 +170,13 @@ namespace com.github.xiangyuecn.rsacsharp {
 			rsaParams.Flags = CspProviderFlags.UseMachineKeyStore;
 			var rsa = new RSACryptoServiceProvider(rsaParams);
 
-			setToRSA(rsa);
+			GetRSA__ImportParameters(rsa);
 			return rsa;
 		}
-		private void setToRSA(RSA rsa) {
+		/// <summary>
+		/// 将密钥参数导入到RSA对象中
+		/// </summary>
+		public void GetRSA__ImportParameters(RSA rsa) {
 			var param = new RSAParameters();
 			param.Modulus = Key_Modulus;
 			param.Exponent = Key_Exponent;
@@ -234,7 +240,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			long now = DateTime.Now.Ticks;
 			for (int aInt = 2; true; aInt++) {
 				if (aInt % 10 == 0 && DateTime.Now.Ticks - now > 3000 * 10000) {
-					throw new Exception("推算RSA.P超时");//测试最多循环2次，1024位的速度很快 8ms
+					throw new Exception(T("推算RSA.P超时", "Estimated RSA.P timeout"));//测试最多循环2次，1024位的速度很快 8ms
 				}
 
 				BigInteger aPow = BigInteger.ModPow(new BigInteger(aInt), t, n);
@@ -275,7 +281,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			byte[] data = null;
 			try { data = Convert.FromBase64String(base64); } catch { }
 			if (data == null) {
-				throw new Exception("PEM内容无效");
+				throw new Exception(T("PEM内容无效", "Invalid PEM content"));
 			}
 			var idx = 0;
 
@@ -293,7 +299,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 						return data[idx++];
 					}
 				}
-				throw new Exception("PEM未能提取到数据");
+				throw new Exception(T("PEM未能提取到数据", "Failed to extract data from PEM"));
 			};
 			//读取块数据
 			Func<byte[]> readBlock = () => {
@@ -354,7 +360,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 				//读取版本号
 				if (!eq(_Ver)) {
-					throw new Exception("PEM未知版本");
+					throw new Exception(T("PEM未知版本", "Unknown PEM version"));
 				}
 
 				//检测PKCS8
@@ -367,7 +373,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 					//读取版本号
 					if (!eq(_Ver)) {
-						throw new Exception("PEM版本无效");
+						throw new Exception(T("PEM版本无效", "Invalid PEM version"));
 					}
 				} else {
 					idx = idx2;
@@ -385,7 +391,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 				param.Val_DQ = BigL(readBlock(), keyLen);
 				param.Val_InverseQ = BigL(readBlock(), keyLen);
 			} else {
-				throw new Exception("pem需要BEGIN END标头");
+				throw new Exception(T("pem需要BEGIN END标头", "pem requires BEGIN END header"));
 			}
 
 			return param;
@@ -396,6 +402,32 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 
 
+
+
+
+
+
+
+
+		/// <summary>
+		/// 将当前PEM中的密钥对复制出一个新的PEM对象
+		/// 。convertToPublic：等于true时含私钥的PEM将只返回公钥，仅含公钥的PEM不受影响
+		/// </summary>
+		public RSA_PEM CopyToNew(bool convertToPublic = false) {
+			if (convertToPublic) {
+				return new RSA_PEM(Key_Modulus, Key_Exponent, null, null, null, null, null, null);
+			}
+			return new RSA_PEM(Key_Modulus, Key_Exponent, Key_D, Val_P, Val_Q, Val_DP, Val_DQ, Val_InverseQ);
+		}
+		/// <summary>
+		/// 【不安全、不建议使用】对调交换公钥指数（Key_Exponent）和私钥指数（Key_D）：把公钥当私钥使用（new.Key_D=this.Key_Exponent）、私钥当公钥使用（new.Key_Exponent=this.Key_D），返回一个新PEM对象；比如用于：私钥加密、公钥解密，这是非常规的用法
+		/// 。当前对象必须含私钥，否则无法交换会直接抛异常
+		/// 。注意：把公钥当私钥使用是非常不安全的，因为绝大部分生成的密钥的公钥指数为 0x10001（AQAB），太容易被猜测到，无法作为真正意义上的私钥
+		/// </summary>
+		public RSA_PEM SwapKey_Exponent_D__Unsafe() {
+			if (Key_D == null) throw new Exception(T("SwapKey只支持私钥", "SwapKey only supports private keys"));
+			return new RSA_PEM(Key_Modulus, Key_D, Key_Exponent);
+		}
 
 
 
@@ -424,6 +456,46 @@ namespace com.github.xiangyuecn.rsacsharp {
 		/// 。publicUsePKCS8：公钥的返回格式，等于true时返回PKCS#8格式（-----BEGIN PUBLIC KEY-----），否则返回PKCS#1格式（-----BEGIN RSA PUBLIC KEY-----），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式似乎比较少见公钥
 		/// </summary>
 		public string ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8) {
+			byte[] der = ToDER(convertToPublic, privateUsePKCS8, publicUsePKCS8);
+			if (Key_D == null || convertToPublic) {
+				var flag = " PUBLIC KEY";
+				if (!publicUsePKCS8) {
+					flag = " RSA" + flag;
+				}
+				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(der), 64) + "\n-----END" + flag + "-----";
+			} else {
+				var flag = " PRIVATE KEY";
+				if (!privateUsePKCS8) {
+					flag = " RSA" + flag;
+				}
+				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(der), 64) + "\n-----END" + flag + "-----";
+			}
+		}
+		// 把字符串按每行多少个字断行
+		static private string TextBreak(string text, int line) {
+			var idx = 0;
+			var len = text.Length;
+			var str = new StringBuilder();
+			while (idx < len) {
+				if (idx > 0) {
+					str.Append('\n');
+				}
+				if (idx + line >= len) {
+					str.Append(text.Substring(idx));
+				} else {
+					str.Append(text.Substring(idx, line));
+				}
+				idx += line;
+			}
+			return str.ToString();
+		}
+		/// <summary>
+		/// 将RSA中的密钥对转换成DER格式，DER格式为PEM中的Base64文本编码前的二进制数据
+		/// 。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响
+		/// 。privateUsePKCS8：私钥的返回格式，等于true时返回PKCS#8格式，否则返回PKCS#1格式，返回公钥时此参数无效；两种格式使用都比较常见
+		/// 。publicUsePKCS8：公钥的返回格式，等于true时返回PKCS#8格式，否则返回PKCS#1格式，返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式似乎比较少见公钥
+		/// </summary>
+		public byte[] ToDER(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8) {
 			//https://www.jianshu.com/p/25803dd9527d
 			//https://www.cnblogs.com/ylz8401/p/8443819.html
 			//https://blog.csdn.net/jiayanhui2877/article/details/47187077
@@ -470,23 +542,6 @@ namespace com.github.xiangyuecn.rsacsharp {
 			Action<MemoryStream, byte[]> writeAll = (stream, byts) => {
 				stream.Write(byts, 0, byts.Length);
 			};
-			Func<string, int, string> TextBreak = (text, line) => {
-				var idx = 0;
-				var len = text.Length;
-				var str = new StringBuilder();
-				while (idx < len) {
-					if (idx > 0) {
-						str.Append('\n');
-					}
-					if (idx + line >= len) {
-						str.Append(text.Substring(idx));
-					} else {
-						str.Append(text.Substring(idx, line));
-					}
-					idx += line;
-				}
-				return str.ToString();
-			};
 
 
 			if (Key_D == null || convertToPublic) {
@@ -529,12 +584,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 				}
 				byts = writeLen(index1, byts);
 
-
-				var flag = " PUBLIC KEY";
-				if (!publicUsePKCS8) {
-					flag = " RSA" + flag;
-				}
-				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(byts), 64) + "\n-----END" + flag + "-----";
+				return byts;
 			} else {
 				/****生成私钥****/
 
@@ -583,12 +633,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 				}
 				byts = writeLen(index1, byts);
 
-
-				var flag = " PRIVATE KEY";
-				if (!privateUsePKCS8) {
-					flag = " RSA" + flag;
-				}
-				return "-----BEGIN" + flag + "-----\n" + TextBreak(Convert.ToBase64String(byts), 64) + "\n-----END" + flag + "-----";
+				return byts;
 			}
 		}
 
@@ -615,7 +660,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 			Match xmlM = xmlExp.Match(xml);
 			if (!xmlM.Success) {
-				throw new Exception("XML内容不符合要求");
+				throw new Exception(T("XML内容不符合要求", "XML content does not meet requirements"));
 			}
 
 			Match tagM = xmlTagExp.Match(xmlM.Groups[1].Value);
@@ -638,7 +683,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			}
 
 			if (rtv.Key_Modulus == null || rtv.Key_Exponent == null) {
-				throw new Exception("XML公钥丢失");
+				throw new Exception(T("XML公钥丢失", "Public key in XML is missing"));
 			}
 			if (rtv.Key_D != null) {
 				if (rtv.Val_P == null || rtv.Val_Q == null || rtv.Val_DP == null || rtv.Val_DQ == null || rtv.Val_InverseQ == null) {
@@ -681,6 +726,31 @@ namespace com.github.xiangyuecn.rsacsharp {
 		}
 
 
+
+		/// <summary>
+		/// 简版多语言支持，根据当前语言<see cref="Lang"/>返回中文或英文
+		/// </summary>
+		static public string T(string zh, string en) {
+			return Lang == "zh" ? zh : en;
+		}
+		static private string _lang;
+		/// <summary>
+		/// 简版多语言支持，取值：zh（简体中文）、en（English-US），默认根据系统取值
+		/// </summary>
+		static public string Lang {
+			get {
+				if (_lang == null) {
+					var locale = CultureInfo.CurrentCulture.Name.Replace('_', '-').ToLower();
+					if (Regex.IsMatch(locale, "\\b(zh|cn)\\b")) {
+						_lang = "zh";
+					} else {
+						_lang = "en";
+					}
+				}
+				return _lang;
+			}
+			set { _lang = value; }
+		}
 
 	}
 }

@@ -1,12 +1,26 @@
 **【[源GitHub仓库](https://github.com/xiangyuecn/RSA-csharp)】 | 【[Gitee镜像库](https://gitee.com/xiangyuecn/RSA-csharp)】如果本文档图片没有显示，请手动切换到Gitee镜像库阅读文档。**
 
-# :open_book:RSA-csharp的帮助文档
+# :open_book:RSA-csharp使用文档 ( [English Documentation](README-English.md) )
 
-本项目核心功能：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥对导入、导出。
+**本项目核心功能：支持`.NET Core`、`.NET Framework`环境下`PEM`（`PKCS#1`、`PKCS#8`）格式RSA密钥生成、导入、导出，多种常见RSA加密、签名填充算法支持。**
 
-你可以只copy `RSA_PEM.cs` 文件到你的项目中使用，只需这一个文件你就拥有了通过PEM格式密钥创建`RSA`或`RSACryptoServiceProvider`的能力。也可以clone整个项目代码用vs直接打开进行测试。
+- 支持.NET Framework 4.5+、.NET Standard 2.0+（.NET Core 2.0+、.NET 5+）
+- 可通过`PEM`、`XML`格式密钥创建RSA
+- 可通过指定密钥位数、密钥参数创建RSA
+- 可导出`PEM`、`XML`格式公钥、私钥，格式相互转换
+- 公钥加密、私钥解密：`NoPadding`、`PKCS1Padding`、`OAEP+MD5`、`OAEP+SHA1 ... SHA3-512`
+- 私钥签名、公钥验证：`PKCS1+SHA1 ... SHA3-512`、`PKCS1+MD5`、`PSS+SHA1 ... SHA3-512`
+- 非常规的：私钥加密、公钥解密，公钥签名、私钥验证
+- 多语言支持：提供中文、英文两种语言支持
+- 另有Java版 [RSA-java](https://github.com/xiangyuecn/RSA-java)，所有加密签名算法在`Java`、`.NET`、`OpenSSL`中均可互通
+- 源码简单，提供编译测试`.bat|.sh`脚本，无需Visual Studio即可修改和运行，copy即用
 
-底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；附带实现了一个RSA封装操作类（`RSA_Util.cs`），和一个测试控制台程序（`Program.cs`）。
+[​](?)
+
+你可以只copy `RSA_PEM.cs`、`RSA_Util.cs` 文件到你的项目中使用，即可使用上所有的功能。也可以clone整个项目代码双击 `Test-Build-Run.bat` 即可直接运行测试（macOS、linux用终端运行`.sh`的），通过`scripts/Create-dll.bat(sh)`脚本可生成dll文件供项目引用。
+
+`RSA_PEM`类底层实现采用PEM文件二进制层面上进行字节码解析，简单轻巧0依赖；`RSA_Util`为封装RSA操作类，支持跨平台使用，可选搭配使用`BouncyCastle`加密增强库可获得更丰富的加密签名模式支持。
+
 
 源文件|平台支持|功能说明|依赖项
 :-:|:-:|:-|:-
@@ -14,57 +28,64 @@
 **RSA_Util.cs**|.NET Core、.NET Framework|RSA操作类，封装了加密、解密、验签|RSA_PEM
 Program.cs|.NET Core、.NET Framework|测试控制台程序|RSA_PEM、RSA_Util
 
-**如需功能定制，网站、App、小程序开发等需求，请加本文档下面的QQ群，联系群主（即作者），谢谢~**
+[​](?)
 
-【Java版】：[RSA-java](https://github.com/xiangyuecn/RSA-java)
+**Test-Build-Run.bat 测试编译运行截图：**
+
+![控制台测试](images/1.png)
 
 
 [​](?)
 
-## 特性
-
-- 通过`XML格式`密钥对创建RSA
-- 通过`PEM格式`密钥对创建RSA
-- 通过指定密钥位数创建RSA（生成公钥、私钥）
-- RSA加密、解密
-- RSA签名、验证
-- 导出`XML格式`公钥、私钥
-- 导出`PEM格式`公钥、私钥
-- `PEM格式`秘钥对和`XML格式`秘钥对互转
-
-
 [​](?)
 
-## 如何加密、解密、签名、校验
-得到了RSA_PEM后，加密解密就异常简单了，没那么多啰嗦难懂的代码：
+## 快速使用：加密、解密、签名、校验
+
+### 步骤一：引入RSA-csharp
+- 方法1：直接复制 `RSA_PEM.cs`、`RSA_Util.cs` 文件到你的项目中使用。
+- 方法2：使用`scripts/Create-dll.bat(sh)`脚本生成dll文件，项目添加这个dll的引用即可使用。
+- 方法3：下载Releases中对应版本的dll文件（就是方法2脚本生成的dll），项目添加这个dll的引用即可使用。
+
+> 注意：.NET Framework项目可能需要手动引入`System.Numerics`程序集来支持`BigInteger`，vs默认创建的项目没有自动引入此程序集，.NET Core项目不需要此操作。
+
+
+### 步骤二：编写代码
 ``` c#
-//先解析pem，公钥私钥都行，如果是xml就用 RSA_PEM.FromXML("<RSAKeyValue><Modulus>....</RSAKeyValue>")
-var pem=RSA_PEM.FromPEM("-----BEGIN XXX KEY-----..此处意思意思..-----END XXX KEY-----");
+//先解析pem或xml，公钥私钥均可解析 
+//var pem=RSA_PEM.FromPEM("-----BEGIN XXX KEY-----....-----END XXX KEY-----");
+//var pem=RSA_PEM.FromXML("<RSAKeyValue><Modulus>....</RSAKeyValue>");
 
-//直接创建RSA操作类
-var rsa=new RSA_Util(pem);
-//var rsa=new RSA_Util(2048); //也可以直接生成新密钥，rsa.ToPEM()得到pem对象
+//直接创建RSA操作类，可创建成全局对象，加密解密签名均支持并发调用
+//var rsa=new RSA_Util(pem);
+var rsa=new RSA_Util(2048); //也可以直接生成新密钥，rsa.ToPEM()得到pem对象
 
-//加密
-var enTxt=rsa.Encode("测试123");
+//可选注册BouncyCastle加密增强库（程序启动时注册一次即可），用来实现.NET不支持的加密签名填充方式，NuGet：Portable.BouncyCastle或BouncyCastle.Cryptography
+//RSA_Util.UseBouncyCastle(typeof(RsaEngine).Assembly);
 
-//解密
-var deTxt=rsa.DecodeOrNull(enTxt);
+//公钥加密，填充方式：PKCS1，可以使用 OAEP+SHA256 等填充方式
+var enTxt=rsa.Encrypt("PKCS1", "测试123");
+//私钥解密
+var deTxt=rsa.Decrypt("PKCS1", enTxt);
 
-//签名
-var sign=rsa.Sign("SHA1", "测试123");
-
-//校验签名
-var isVerify=rsa.Verify("SHA1", sign, "测试123");
+//私钥签名，填充方式：PKCS1+SHA1，可以使用 PSS+SHA256 等填充方式
+var sign=rsa.Sign("PKCS1+SHA1", "测试123");
+//公钥校验签名
+var isVerify=rsa.Verify("PKCS1+SHA1", sign, "测试123");
 
 //导出pem文本
 var pemTxt=rsa.ToPEM().ToPEM_PKCS8();
+
+//非常规的（不安全、不建议使用）：私钥加密、公钥解密，公钥签名、私钥验证
+RSA_Util rsa2=rsa.SwapKey_Exponent_D__Unsafe();
+//... rsa2.Encrypt rsa2.Decrypt rsa2.Sign rsa2.Verify
 
 Console.WriteLine(pemTxt+"\n"+enTxt+"\n"+deTxt+"\n"+sign+"\n"+isVerify);
 Console.ReadLine();
 //****更多的实例，请阅读 Program.cs****
 //****更多功能方法，请阅读下面的详细文档****
 ```
+
+**如需功能定制，网站、App、小程序开发等需求，请加下面的QQ群，联系群主（即作者），谢谢~**
 
 
 
@@ -95,19 +116,82 @@ Console.ReadLine();
 
 # :open_book:文档
 
-## 【RSA_PEM.cs】
-此文件不依赖任何文件，可以直接copy这个文件到你项目中用；通过`FromPEM`、`ToPEM` 和`FromXML`、`ToXML`这两对方法，可以实现PEM`PKCS#1`、`PKCS#8`相互转换，PEM、XML的相互转换。
+## 加密填充方式
 
-Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteger`，vs默认创建的项目是不会自动引入此程序集的，要手动引入，Core的不需要。
+> 下表中Frame为.NET Framework支持情况，Core为.NET Core的支持情况，BC为BouncyCastle加密增强库支持情况（可通过RSA_Util.UseBouncyCastle方法注册）；√为支持，×为不支持，其他值为某版本开始支持；其中OAEP的掩码生成函数MGF1使用和OAEP相同的Hash算法。
+
+加密填充方式|Algorithm|Frame|Core|BC
+:-|:-|:-:|:-:|:-:
+NO|RSA/ECB/NoPadding|×|×|√
+PKCS1      |RSA/ECB/PKCS1Padding|√|√|√
+OAEP+SHA1  |RSA/ECB/OAEPwithSHA-1andMGF1Padding|√|√|√
+OAEP+SHA256|RSA/ECB/OAEPwithSHA-256andMGF1Padding|4.6+|√|√
+OAEP+SHA224|RSA/ECB/OAEPwithSHA-224andMGF1Padding|×|×|√
+OAEP+SHA384|RSA/ECB/OAEPwithSHA-384andMGF1Padding|4.6+|√|√
+OAEP+SHA512|RSA/ECB/OAEPwithSHA-512andMGF1Padding|4.6+|√|√
+OAEP+SHA-512/224|RSA/ECB/OAEPwithSHA-512/224andMGF1Padding|×|×|√
+OAEP+SHA-512/256|RSA/ECB/OAEPwithSHA-512/256andMGF1Padding|×|×|√
+OAEP+SHA3-256|RSA/ECB/OAEPwithSHA3-256andMGF1Padding|×|8+|√
+OAEP+SHA3-224|RSA/ECB/OAEPwithSHA3-224andMGF1Padding|×|×|√
+OAEP+SHA3-384|RSA/ECB/OAEPwithSHA3-384andMGF1Padding|×|8+|√
+OAEP+SHA3-512|RSA/ECB/OAEPwithSHA3-512andMGF1Padding|×|8+|√
+OAEP+MD5     |RSA/ECB/OAEPwithMD5andMGF1Padding|4.6+|√|√
+
+
+
+## 签名填充方式
+
+> 下表中Frame为.NET Framework支持情况，Core为.NET Core的支持情况，BC为BouncyCastle加密增强库支持情况（可通过RSA_Util.UseBouncyCastle方法注册）；√为支持，×为不支持，其他值为某版本开始支持；其中PSS的salt字节数等于使用的Hash算法字节数，PSS的掩码生成函数MGF1使用和PSS相同的Hash算法，跟踪属性TrailerField取值固定为0xBC。
+
+签名填充方式|Algorithm|Frame|Core|BC
+:-|:-|:-:|:-:|:-:
+SHA1 ... SHA3-512|等同于PKCS1+SHA***|||
+PKCS1+SHA1  |SHA1withRSA|√|√|√
+PKCS1+SHA256|SHA256withRSA|√|√|√
+PKCS1+SHA224|SHA224withRSA|×|×|√
+PKCS1+SHA384|SHA384withRSA|√|√|√
+PKCS1+SHA512|SHA512withRSA|√|√|√
+PKCS1+SHA-512/224|SHA512/224withRSA|×|×|√
+PKCS1+SHA-512/256|SHA512/256withRSA|×|×|√
+PKCS1+SHA3-256|SHA3-256withRSA|×|8+|√
+PKCS1+SHA3-224|SHA3-224withRSA|×|×|√
+PKCS1+SHA3-384|SHA3-384withRSA|×|8+|√
+PKCS1+SHA3-512|SHA3-512withRSA|×|8+|√
+PKCS1+MD5 |MD5withRSA|√|√|√
+PSS+SHA1  |SHA1withRSA/PSS|4.6+|√|√
+PSS+SHA256|SHA256withRSA/PSS|4.6+|√|√
+PSS+SHA224|SHA224withRSA/PSS|×|×|√
+PSS+SHA384|SHA384withRSA/PSS|4.6+|√|√
+PSS+SHA512|SHA512withRSA/PSS|4.6+|√|√
+PSS+SHA-512/224|SHA512/224withRSA/PSS|×|×|√
+PSS+SHA-512/256|SHA512/256withRSA/PSS|×|×|√
+PSS+SHA3-256|SHA3-256withRSA/PSS|×|8+|√
+PSS+SHA3-224|SHA3-224withRSA/PSS|×|×|√
+PSS+SHA3-384|SHA3-384withRSA/PSS|×|8+|√
+PSS+SHA3-512|SHA3-512withRSA/PSS|×|8+|√
+PSS+MD5     |MD5withRSA/PSS|4.6+|√|√
+
+
+
+[​](?)
+
+[​](?)
+
+## RSA_PEM 类文档
+`RSA_PEM.cs`文件不依赖任何文件，可以直接copy这个文件到你项目中用；通过`FromPEM`、`ToPEM` 和`FromXML`、`ToXML`这两对方法，可以实现PEM`PKCS#1`、`PKCS#8`相互转换，PEM、XML的相互转换。
 
 注：`openssl rsa -in 私钥文件 -pubout`导出的是PKCS#8格式公钥（用的比较多），`openssl rsa -pubin -in PKCS#8公钥文件 -RSAPublicKey_out`导出的是PKCS#1格式公钥（用的比较少）。
 
 
-### 静态方法
+### 静态属性和方法
 
 `RSA_PEM` **FromPEM(string pem)**：用PEM格式密钥对创建RSA，支持PKCS#1、PKCS#8格式的PEM，出错将会抛出异常。pem格式如：`-----BEGIN XXX KEY-----....-----END XXX KEY-----`。
 
 `RSA_PEM` **FromXML(string xml)**：将XML格式密钥转成PEM，支持公钥xml、私钥xml，出错将会抛出异常。xml格式如：`<RSAKeyValue><Modulus>....</RSAKeyValue>`。
+
+`string` **T(string zh, string en)**：简版多语言支持，根据当前语言`Lang`值返回中文或英文。
+
+`string` **Lang**：简版多语言支持，取值：`zh`（简体中文）、`en`（English-US），默认根据系统取值，可赋值指定语言。
 
 
 ### 构造方法
@@ -136,6 +220,14 @@ Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteg
 
 `RSACryptoServiceProvider` **GetRSA_ForWindows()**：将PEM中的公钥私钥转成RSA对象，如果未提供私钥，RSA中就只包含公钥。.NET Core、.NET Framework均可用，但返回的RSACryptoServiceProvider不支持跨平台，所以只支持在Windows系统中使用。
 
+`void` **GetRSA__ImportParameters(RSA rsa)**：将密钥参数导入到RSA对象中，`GetRSA_ForCore`、`GetRSA_ForWindows`中调用了本方法，可用于创建其他类型的RSA时使用。
+
+`RSA_PEM` **CopyToNew(bool convertToPublic = false)**：将当前PEM中的密钥对复制出一个新的PEM对象。convertToPublic：等于true时含私钥的PEM将只返回公钥，仅含公钥的PEM不受影响。
+
+`RSA_PEM` **SwapKey_Exponent_D__Unsafe()**：【不安全、不建议使用】对调交换公钥指数（Key_Exponent）和私钥指数（Key_D）：把公钥当私钥使用（new.Key_D=this.Key_Exponent）、私钥当公钥使用（new.Key_Exponent=this.Key_D），返回一个新PEM对象；比如用于：私钥加密、公钥解密，这是非常规的用法。当前对象必须含私钥，否则无法交换会直接抛异常。注意：把公钥当私钥使用是非常不安全的，因为绝大部分生成的密钥的公钥指数为 0x10001（AQAB），太容易被猜测到，无法作为真正意义上的私钥。
+
+`byte[]` **ToDER(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8)**：将RSA中的密钥对转换成DER格式，DER格式为PEM中的Base64文本编码前的二进制数据，参数含义参考ToPEM方法。
+
 `string` **ToPEM(bool convertToPublic, bool privateUsePKCS8, bool publicUsePKCS8)**：将RSA中的密钥对转换成PEM格式。convertToPublic：等于true时含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响 。**privateUsePKCS8**：私钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PRIVATE KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PRIVATE KEY-----`），返回公钥时此参数无效；两种格式使用都比较常见。**publicUsePKCS8**：公钥的返回格式，等于true时返回PKCS#8格式（`-----BEGIN PUBLIC KEY-----`），否则返回PKCS#1格式（`-----BEGIN RSA PUBLIC KEY-----`），返回私钥时此参数无效；一般用的多的是true PKCS#8格式公钥，PKCS#1格式公钥似乎比较少见。
 
 `string` **ToPEM_PKCS1(bool convertToPublic=false)**：ToPEM方法的简化写法，不管公钥还是私钥都返回PKCS#1格式；似乎导出PKCS#1公钥用的比较少，PKCS#8的公钥用的多些，私钥#1#8都差不多。
@@ -147,8 +239,28 @@ Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteg
 
 
 
-## 【RSA_Util.cs】
-这个文件依赖`RSA_PEM.cs`，封装了加密、解密、签名、验证、秘钥导入导出操作；.NET Core下由实际的RSA实现类提供支持，.NET Framework下由RSACryptoServiceProvider提供支持。
+[​](?)
+
+[​](?)
+
+## RSA_Util 类文档
+`RSA_Util.cs`文件依赖`RSA_PEM.cs`，封装了加密、解密、签名、验证、秘钥导入导出操作；.NET Core下由实际的RSA实现类提供支持，.NET Framework 4.5及以下由RSACryptoServiceProvider提供支持，.NET Framework 4.6及以上由RSACng提供支持；或者引入BouncyCastle加密增强库提供支持。
+
+
+### 静态属性和方法
+
+`string` **RSAPadding_Enc(string padding)**：将加密填充方式转换成对应的Algorithm字符串，比如`PKCS1 -> RSA/ECB/PKCS1Padding`。
+
+`string` **RSAPadding_Sign(string hash)**：将签名填充方式转换成对应的Algorithm字符串，比如`PKCS1+SHA1 -> SHA1withRSA`。
+
+`bool` **IsDotNetSupportError(string errMsg)**：判断异常消息是否是因为.NET兼容性产生的错误。
+
+`void` **UseBouncyCastle(Assembly bouncyCastleAssembly)**：强制使用BouncyCastle加密增强库进行RSA操作。只需在程序启动后调用一次即可，直接调用一下BouncyCastle里面的类，传入程序集：`UseBouncyCastle(typeof(RsaEngine).Assembly)`，传入null取消使用。项目中引入BouncyCastle加密增强库来扩充.NET加密功能，NuGet：Portable.BouncyCastle或BouncyCastle.Cryptography，文档 https://www.bouncycastle.org/csharp/ ，在程序启动时调用本方法进行注册即可得到全部的加密签名填充方式支持。
+
+`bool` **IsUseBouncyCastle**：是否强制使用BouncyCastle加密增强库进行RSA操作，为true时将不会使用.NET的RSA。
+
+`bool` **IS_CORE**：当前运行环境是否为.NET Core，false为.NET Framework。
+
 
 ### 构造方法
 
@@ -165,9 +277,9 @@ Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteg
 
 ### 实例属性
 
-`RSA` **RSAObject**：最底层的RSA对象，.NET Core下为实际的RSA实现类，.NET Framework下RSACryptoServiceProvider。
+`RSA` **RSAObject**：获取最底层的RSA对象，.NET Core下为实际的RSA实现类，.NET Framework 4.5及以下RSACryptoServiceProvider，.NET Framework 4.6及以上RSACng；注意：IsUseBouncyCastle时将不会使用.NET的RSA。
 
-`bool` **RSAIsUseCore**：最底层的RSA对象是否是使用的rsaCore（RSA），否则将是使用的rsaFramework（RSACryptoServiceProvider）。
+`bool` **RSAIsUseCore**：最底层的RSA对象是否是使用的.NET Core（RSA），否则将是使用的.NET Framework（4.5及以下RSACryptoServiceProvider、4.6及以上RSACng）；注意：IsUseBouncyCastle时将不会使用.NET的RSA。
 
 `int` **KeySize**：密钥位数。
 
@@ -180,51 +292,71 @@ Framework项目里面需要引入程序集`System.Numerics`用来支持`BigInteg
 
 `RSA_PEM` **ToPEM(bool convertToPublic = false)**：导出RSA_PEM对象（然后可以通过RSA_PEM.ToPEM方法导出PEM文本），如果convertToPublic含私钥的RSA将只返回公钥，仅含公钥的RSA不受影响。
 
-`string` **Encode(string str)**：加密操作，支持任意长度数据，出错抛异常。
+`RSA_Util` **SwapKey_Exponent_D__Unsafe()**：【不安全、不建议使用】对调交换公钥指数（Key_Exponent）和私钥指数（Key_D）：把公钥当私钥使用（new.Key_D=this.Key_Exponent）、私钥当公钥使用（new.Key_Exponent=this.Key_D），返回一个新RSA对象；比如用于：私钥加密、公钥解密，这是非常规的用法。当前对象必须含私钥，否则无法交换会直接抛异常。注意：把公钥当私钥使用是非常不安全的，因为绝大部分生成的密钥的公钥指数为 0x10001（AQAB），太容易被猜测到，无法作为真正意义上的私钥。交换后的密钥不支持在RSACryptoServiceProvider（.NET Framework 4.5及以下版本）中使用：`!IS_CoreOr46 && !IsUseBouncyCastle`。
 
-`byte[]` **Encode(byte[] data)**：加密数据，支持任意长度数据，出错抛异常。
+`string` **Encrypt(string padding, string str)**：加密任意长度字符串（utf-8）返回base64，出错抛异常。本方法线程安全。padding指定填充方式，如：PKCS1、OAEP+SHA256大写，参考上面的加密填充方式表格，使用空值时默认为PKCS1。
 
-`string` **DecodeOrNull(string str)**：解密字符串（utf-8），解密异常返回null。
+`byte[]` **Encrypt(string padding, byte[] data)**：加密任意长度数据，出错抛异常。本方法线程安全。
 
-`byte[]` **DecodeOrNull(byte[] data)**：解密数据，解密异常返回null。
+`string` **Decrypt(string padding, string str)**：解密任意长度密文（base64）得到字符串（utf-8），出错抛异常。本方法线程安全。padding指定填充方式，如：PKCS1、OAEP+SHA256大写，参考上面的加密填充方式表格，使用空值时默认为PKCS1。
 
-`string` **Sign(string hash, string str)**：对str进行签名，并指定hash算法（如：SHA256）。
+`byte[]` **Decrypt(string padding, byte[] data)**：解密任意长度数据，出错抛异常。本方法线程安全。
 
-`byte[]` **Sign(string hash, byte[] data)**：对data进行签名，并指定hash算法（如：SHA256）。
+`string` **Sign(string hash, string str)**：对字符串str进行签名，返回base64结果，出错抛异常。本方法线程安全。hash指定签名摘要算法和填充方式，如：SHA256、PSS+SHA1大写，参考上面的签名填充方式表格。
 
-`bool` **Verify(string hash, string sign, string str)**：验证字符串str的签名是否是sign，并指定hash算法（如：SHA256）。
+`byte[]` **Sign(string hash, byte[] data)**：对data进行签名，出错抛异常。本方法线程安全。
 
-`bool` **Verify(string hash, byte[] sign, byte[] data)**：验证data的签名是否是sign，并指定hash算法（如：SHA256）。
+`bool` **Verify(string hash, string sign, string str)**：验证字符串str的签名是否是sign（base64），出错抛异常。本方法线程安全。hash指定签名摘要算法和填充方式，如：SHA256、PSS+SHA1大写，参考上面的签名填充方式表格。
 
-
-
-
+`bool` **Verify(string hash, byte[] sign, byte[] data)**：验证data的签名是否是sign，出错抛异常。本方法线程安全。
 
 
 
 
-[​](?)
+
 
 [​](?)
 
 [​](?)
 
-[​](?)
+## OpenSSL RSA常用命令行参考
+``` bat
+::先准备一个测试文件 test.txt 里面填少量内容，openssl不支持自动分段加密
 
-[​](?)
+::生成新密钥
+openssl genrsa -out private.pem 1024
 
-[​](?)
+::提取公钥PKCS#8
+openssl rsa -in private.pem -pubout -out public.pem
 
-# :open_book:图例
+::转换成RSAPublicKey PKCS#1
+openssl rsa -pubin -in public.pem -RSAPublicKey_out -out public.pem.rsakey
+::测试RSAPublicKey PKCS#1，不出意外会出错。因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#8自动带上OID就能正常加密
+echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
 
-控制台运行：
 
-![控制台运行](images/1.png)
 
-RSA工具（非开源）：
+::加密和解密，填充方式：PKCS1
+openssl pkeyutl -encrypt -pkeyopt rsa_padding_mode:pkcs1 -in test.txt -pubin -inkey public.pem -out test.txt.enc.bin
+openssl pkeyutl -decrypt -pkeyopt rsa_padding_mode:pkcs1 -in test.txt.enc.bin -inkey private.pem -out test.txt.dec.txt
 
-![RSA工具](images/2.png)
+::加密和解密，填充方式：OAEP+SHA256，掩码生成函数MGF1使用相同的hash算法
+openssl pkeyutl -encrypt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in test.txt -pubin -inkey public.pem -out test.txt.enc.bin
+openssl pkeyutl -decrypt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in test.txt.enc.bin -inkey private.pem -out test.txt.dec.txt
 
+
+::命令行参数中的sha256可以换成md5、sha1等；如需sha3系列，就换成sha3-256即可
+
+
+::签名和验证，填充方式：PKCS1+SHA256
+openssl dgst -sha256 -binary -sign private.pem -out test.txt.sign.bin test.txt
+openssl dgst -sha256 -binary -verify public.pem -signature test.txt.sign.bin test.txt
+
+::签名和验证，填充方式：PSS+SHA256 ，salt=-1使用hash长度=256/8，掩码生成函数MGF1使用相同的hash算法
+openssl dgst -sha256 -binary -out test.txt.hash test.txt
+openssl pkeyutl -sign -pkeyopt digest:sha256 -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -in test.txt.hash -inkey private.pem -out test.txt.sign.bin
+openssl pkeyutl -verify -pkeyopt digest:sha256 -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -in test.txt.hash -pubin -inkey public.pem -sigfile test.txt.sign.bin
+```
 
 
 
@@ -245,9 +377,7 @@ RSA工具（非开源）：
 
 # :open_book:知识库
 
-在写一个小转换工具时加入了RSA加密解密支持（见图RSA工具），秘钥输入框支持填写XML和PEM格式，操作类型里面支持XML->PEM、PEM->XML的转换。
-
-实现相应功能发现原有RSA操作类不能良好工作，PEM->XML没问题，只要能通过PEM创建RSA，就能用`RSACryptoServiceProvider`自带方法导出XML。但XML->PEM没有找到相应的简单实现方法，大部分博客写的用BouncyCastle库来操作，代码是少，但BouncyCastle就有好几兆大小，我的小工具啊才100K；所以自己实现了一个支持导出`PKCS#1`、`PKCS#8`格式PEM密钥的方法`RSA_PEM.ToPEM`。
+在写一个小转换工具时加入了RSA加密解密支持，实现相应功能发现原有RSA操作类不能良好工作，PEM->XML没问题，只要能通过PEM创建RSA，就能用`RSACryptoServiceProvider`自带方法导出XML。但XML->PEM没有找到相应的简单实现方法，大部分博客写的用BouncyCastle库来操作，代码是少，但BouncyCastle就有好几兆大小，我的小工具啊才100K；所以自己实现了一个支持导出`PKCS#1`、`PKCS#8`格式PEM密钥的方法`RSA_PEM.ToPEM`。
 
 操作过程中发现原有RSA操作类不支持用`PKCS#8`格式PEM密钥来创建RSA对象（用的[RSACryptoServiceProviderExtension](https://www.cnblogs.com/adylee/p/3611461.html)的扩展方法来支持PEM密钥），仅支持`PKCS#1`，所以又自己实现了一个从PEM密钥来创建`RSACryptoServiceProvider`的方法`RSA_PEM.FromPEM`。
 
@@ -523,28 +653,6 @@ RSACryptoServiceProvider生成的密钥，有一定概率生成某些字段首�
 
 > 这几个问题是QQ:284485094 提出的，循环一下测试很容易出现这个现象，现在的代码已经兼容了这种密钥。
 
-
-## openssl RSA常用命令行
-``` bat
-::生成密钥对
-openssl genrsa -out private.pem 1024
-
-::提取公钥PKCS#8
-openssl rsa -in private.pem -pubout -out public.pem
-
-::转换成RSAPublicKey PKCS#1
-openssl rsa -pubin -in public.pem -RSAPublicKey_out -out public.pem.rsakey
-
-::加密
-echo abcd123 | openssl rsautl -encrypt -inkey public.pem -pubin -out data.enc.bin
-
-::解密
-openssl rsautl -decrypt -in data.enc.bin -inkey private.pem -out data.dec.txt
-
-::测试RSAPublicKey PKCS#1，不出意外会出错
-::因为这个公钥里面没有OID，通过RSA_PEM转换成PKCS#8自动带上OID就能正常加密
-echo abcd123 | openssl rsautl -encrypt -inkey public.pem.rsakey -pubin
-```
 
 
 
