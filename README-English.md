@@ -75,8 +75,10 @@ var isVerify=rsa.Verify("PKCS1+SHA1", sign, "test123");
 var pemTxt=rsa.ToPEM().ToPEM_PKCS8();
 
 //Unconventional (unsafe, not recommended): private key encryption, public key decryption, public key signature, private key verification
-RSA_Util rsa2=rsa.SwapKey_Exponent_D__Unsafe();
-//... rsa2.Encrypt rsa2.Decrypt rsa2.Sign rsa2.Verify
+RSA_Util rsaS_Private=rsa.SwapKey_Exponent_D__Unsafe();
+RSA_Util rsaS_Public=new RSA_Util(rsa.ToPEM(true)).SwapKey_Exponent_D__Unsafe();
+//... rsaS_Private.Encrypt rsaS_Public.Decrypt
+//... rsaS_Public.Sign rsaS_Private.Verify
 
 Console.WriteLine(pemTxt+"\n"+enTxt+"\n"+deTxt+"\n"+sign+"\n"+isVerify);
 Console.ReadLine();
@@ -121,7 +123,7 @@ Welcome to join QQ group: 421882406, pure lowercase password: `xiangyuecn`
 
 Padding|Algorithm|Frame|Core|BC
 :-|:-|:-:|:-:|:-:
-NO|RSA/ECB/NoPadding|×|×|√
+NO|RSA/ECB/NoPadding|√|√|√
 PKCS1      |RSA/ECB/PKCS1Padding|√|√|√
 OAEP+SHA1  |RSA/ECB/OAEPwithSHA-1andMGF1Padding|√|√|√
 OAEP+SHA256|RSA/ECB/OAEPwithSHA-256andMGF1Padding|4.6+|√|√
@@ -291,7 +293,7 @@ The `RSA_Util.cs` file depends on `RSA_PEM.cs`, which encapsulates encryption, d
 
 `RSA_PEM` **ToPEM(bool convertToPublic = false)**: Export RSA_PEM object (then you can export PEM text by RSA_PEM.ToPEM method), if convertToPublic RSA containing private key will only return public key, RSA containing only public key will not be affected.
 
-`RSA_Util` **SwapKey_Exponent_D__Unsafe()**: [Unsafe and not recommended] Swap the public key exponent (Key_Exponent) and the private key exponent (Key_D): use the public key as the private key (new.Key_D=this.Key_Exponent) and the private key as the public key (new. Key_Exponent=this.Key_D), returns a new RSA object; for example, used for: private key encryption, public key decryption, this is an unconventional usage. The current object must contain a private key, otherwise an exception will be thrown if it cannot be swapped. Note: It is very insecure to use the public key as a private key, because the public key exponent of most generated keys is 0x10001 (AQAB), which is too easy to guess and cannot be used as a real private key. The swapped key does not support use in RSACryptoServiceProvider (.NET Framework 4.5 and below): `!IS_CoreOr46 && !IsUseBouncyCastle`.
+`RSA_Util` **SwapKey_Exponent_D__Unsafe()**: [Unsafe and not recommended] Swap the public key exponent (Key_Exponent) and the private key exponent (Key_D): use the public key as the private key (new.Key_D=this.Key_Exponent) and the private key as the public key (new.Key_Exponent=this.Key_D), returns a new RSA object; for example, used for: private key encryption, public key decryption, this is an unconventional usage. If the current key only contains the public key, the swap will not occur, and the returned new RSA will allow decryption and signing operations with the public key; However, the RSA that comes with .NET does not support decryption and signing with keys containing only the public key, and the exponent must be swapped (If it is .NET Framework 4.5 and below, public and private keys are not supported), there is no such problem when using NoPadding or IsUseBouncyCastle. Note: It is very unsafe to use a public key as a private key, because the public key exponent of most generated keys is 0x10001 (AQAB), which is too easy to guess and cannot be used as a true private key. In some private key encryption implementations, such as Java's own RSA, when using non-NoPadding padding, encryption with private key objects may use EMSA-PKCS1-v1_5 padding (using the private key exponent to construct a public key object does not have this problem ), so when interoperating between different programs, you may need to use the corresponding padding algorithm to first fill the data, and then use NoPadding padding to encrypt (decryption also uses NoPadding padding to decrypt, and then remove the padding data).
 
 `string` **Encrypt(string padding, string str)**: Encrypt arbitrary length string (utf-8) returns base64, and an exception is thrown if an error occurs. This method is thread safe. padding specifies the encryption padding, such as: PKCS1, OAEP+SHA256 uppercase, refer to the encryption padding table above, and the default is PKCS1 when using a null value.
 

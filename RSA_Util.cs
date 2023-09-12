@@ -10,6 +10,7 @@
 
 using System;
 using System.IO;
+using System.Numerics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -44,12 +45,17 @@ namespace com.github.xiangyuecn.rsacsharp {
 			return PEM__.CopyToNew(convertToPublic);
 		}
 		/// <summary>
-		/// 【不安全、不建议使用】对调交换公钥指数（Key_Exponent）和私钥指数（Key_D）：把公钥当私钥使用（new.Key_D=this.Key_Exponent）、私钥当公钥使用（new.Key_Exponent=this.Key_D），返回一个新RSA对象；比如用于：私钥加密、公钥解密，这是非常规的用法
-		/// 。当前对象必须含私钥，否则无法交换会直接抛异常
-		/// 。注意：把公钥当私钥使用是非常不安全的，因为绝大部分生成的密钥的公钥指数为 0x10001（AQAB），太容易被猜测到，无法作为真正意义上的私钥
-		/// 。交换后的密钥不支持在RSACryptoServiceProvider（.NET Framework 4.5及以下版本）中使用：!IS_CoreOr46 And !IsUseBouncyCastle
+		/// 【不安全、不建议使用】对调交换公钥指数（Key_Exponent）和私钥指数（Key_D）：把公钥当私钥使用（new.Key_D=this.Key_Exponent）、私钥当公钥使用（new.Key_Exponent=this.Key_D），返回一个新RSA对象；比如用于：私钥加密、公钥解密，这是非常规的用法。
+		/// <br/><br/>当前密钥如果只包含公钥，将不会发生对调，返回的新RSA将允许用公钥进行解密和签名操作；但.NET自带的RSA不支持仅含公钥的密钥进行解密和签名，必须进行指数对调（如果是.NET Framework 4.5及以下版本，公钥私钥均不支持），使用NoPadding填充方式或IsUseBouncyCastle时无此问题。
+		/// <br/><br/>注意：把公钥当私钥使用是非常不安全的，因为绝大部分生成的密钥的公钥指数为 0x10001（AQAB），太容易被猜测到，无法作为真正意义上的私钥。
+		/// <br/><br/>部分私钥加密实现中，比如Java自带的RSA，使用非NoPadding填充方式时，用私钥对象进行加密可能会采用EMSA-PKCS1-v1_5填充方式（用私钥指数构造成公钥对象无此问题），因此在不同程序之间互通时，可能需要自行使用对应填充算法先对数据进行填充，然后再用NoPadding填充方式进行加密（解密也按NoPadding填充进行解密，然后去除填充数据）。
 		/// </summary>
 		public RSA_Util SwapKey_Exponent_D__Unsafe() {
+			if (PEM__.Key_D == null) {
+				var rsa = new RSA_Util(PEM__.CopyToNew(false));
+				rsa.allowKeyDNull = true;
+				return rsa;
+			}
 			return new RSA_Util(PEM__.SwapKey_Exponent_D__Unsafe());
 		}
 
@@ -467,6 +473,15 @@ namespace com.github.xiangyuecn.rsacsharp {
 		}
 
 
+		private bool allowKeyDNull;
+		private void checkKeyD(bool usePub) {
+			if (usePub) return;
+			if (PEM__.Key_D != null) return;
+			if (allowKeyDNull) return;
+			throw new Exception(T("当前是公钥，常规情况下不允许进行Decrypt或Sign操作，可以调用SwapKey方法来允许进行此操作", "Currently it is a public key. Decrypt or Sign operations are not allowed under normal circumstances. You can call the SwapKey method to allow this operation."));
+		}
+
+
 
 
 
@@ -539,6 +554,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 			outHash = hash;
 		}
 		private byte[] __EncDec(bool isEnc, string ctype, byte[] data, int blockLen) {
+			checkKeyD(isEnc);
 			string ctype0 = ctype, CType = ctype.ToUpper();
 			bool isNO = false, isOaep = false;
 
@@ -589,6 +605,29 @@ namespace com.github.xiangyuecn.rsacsharp {
 					return (byte[])processBlock.Invoke(cipher, new object[] { data, offset, len });
 				};
 #endif
+			} else if (isNO) {
+				//.NET不支持NoPadding，手动实现一下
+				var n = RSA_PEM.BigX(PEM__.Key_Modulus);
+				var e = RSA_PEM.BigX(PEM__.Key_Exponent);
+				if (!isEnc && PEM__.Key_D != null) {//如果未提供私钥，将用公钥解密
+					e = RSA_PEM.BigX(PEM__.Key_D);
+				}
+				process = (offset, len) => {
+					if (isEnc) {
+						byte[] pad0 = new byte[blockLen];
+						Array.Copy(data, offset, pad0, pad0.Length - len, len);
+						var m = RSA_PEM.BigX(pad0);
+						var c = BigInteger.ModPow(m, e, n);
+						return RSA_PEM.BigB(c);
+					} else {
+						var enc = new byte[len];
+						Array.Copy(data, offset, enc, 0, len);
+						var m = RSA_PEM.BigX(enc);
+						var c = BigInteger.ModPow(m, e, n);
+						return RSA_PEM.BigB(c);
+					}
+				};
+				destory = () => { };
 			} else if (IS_CoreOr46) {
 				//使用高版本RSA进行加密解密，4.6+ 或 Core
 				if (isNO) throw new Exception(NetNotSupportMsg(ctype0 + T("加密填充模式", " encryption padding mode")));
@@ -677,6 +716,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 		}
 		static private Regex HS_Exp = new Regex("^SHA(3-|-?512/)?[\\-/]?(\\d+)WITHRSA$");
 		private void __SignVerify(bool isSign, string hashType, byte[] data, byte[] signData, out byte[] signVal, out bool verifyVal) {
+			checkKeyD(!isSign);
 			string stype = RSAPadding_Sign(hashType), SType = stype.ToUpper();
 
 			bool isPss = SType.EndsWith("/PSS");
@@ -866,17 +906,35 @@ namespace com.github.xiangyuecn.rsacsharp {
 				return val;
 			};
 #if RSA_Util_BouncyCastle_CompileCode_1
-			BcInt[] ks = new BcInt[] { new BcInt(BigX(k.Key_Modulus)), new BcInt(BigX(k.Key_Exponent)), new BcInt(BigX(k.Key_D)), new BcInt(BigX(k.Val_P)), new BcInt(BigX(k.Val_Q)), new BcInt(BigX(k.Val_DP)), new BcInt(BigX(k.Val_DQ)), new BcInt(BigX(k.Val_InverseQ)) };
-			if (usePub) {
-				return new RsaKeyParameters(false, ks[0], ks[1]);
+			BcInt[] ks = new BcInt[8];
+			ks[0] = new BcInt(BigX(k.Key_Modulus));
+			ks[1] = new BcInt(BigX(k.Key_Exponent));
+			checkKeyD(usePub);
+			if (usePub || k.Key_D == null) {
+				return new RsaKeyParameters(!usePub, ks[0], ks[1]);
 			}
+			ks[2] = new BcInt(BigX(k.Key_D));
+			ks[3] = new BcInt(BigX(k.Val_P));
+			ks[4] = new BcInt(BigX(k.Val_Q));
+			ks[5] = new BcInt(BigX(k.Val_DP));
+			ks[6] = new BcInt(BigX(k.Val_DQ));
+			ks[7] = new BcInt(BigX(k.Val_InverseQ));
 			return new RsaPrivateCrtKeyParameters(ks[0], ks[1], ks[2], ks[3], ks[4], ks[5], ks[6], ks[7]);
 #else
 			var BInt = rsaBouncyCastle.GetType("Org.BouncyCastle.Math.BigInteger").GetConstructor(new Type[] { typeof(byte[]) });
-			object[] ks = new object[] { BInt.Invoke(new object[] { BigX(k.Key_Modulus) }), BInt.Invoke(new object[] { BigX(k.Key_Exponent) }), BInt.Invoke(new object[] { BigX(k.Key_D) }), BInt.Invoke(new object[] { BigX(k.Val_P) }), BInt.Invoke(new object[] { BigX(k.Val_Q) }), BInt.Invoke(new object[] { BigX(k.Val_DP) }), BInt.Invoke(new object[] { BigX(k.Val_DQ) }), BInt.Invoke(new object[] { BigX(k.Val_InverseQ) }) };
-			if (usePub) {
-				return FindCtor(rsaBouncyCastle.GetType("Org.BouncyCastle.Crypto.Parameters.RsaKeyParameters"), new string[] { "bool", "big", "big" }).Invoke(new object[] { false, ks[0], ks[1] });
+			object[] ks = new object[8];
+			ks[0] = BInt.Invoke(new object[] { BigX(k.Key_Modulus) });
+			ks[1] = BInt.Invoke(new object[] { BigX(k.Key_Exponent) });
+			checkKeyD(usePub);
+			if (usePub || k.Key_D == null) {//如果未提供私钥，将用公钥解密、签名
+				return FindCtor(rsaBouncyCastle.GetType("Org.BouncyCastle.Crypto.Parameters.RsaKeyParameters"), new string[] { "bool", "big", "big" }).Invoke(new object[] { !usePub, ks[0], ks[1] });
 			}
+			ks[2] = BInt.Invoke(new object[] { BigX(k.Key_D) });
+			ks[3] = BInt.Invoke(new object[] { BigX(k.Val_P) });
+			ks[4] = BInt.Invoke(new object[] { BigX(k.Val_Q) });
+			ks[5] = BInt.Invoke(new object[] { BigX(k.Val_DP) });
+			ks[6] = BInt.Invoke(new object[] { BigX(k.Val_DQ) });
+			ks[7] = BInt.Invoke(new object[] { BigX(k.Val_InverseQ) });
 			return FindCtor(rsaBouncyCastle.GetType("Org.BouncyCastle.Crypto.Parameters.RsaPrivateCrtKeyParameters"), new string[] { "big", "big", "big", "big", "big", "big", "big", "big" }).Invoke(ks);
 #endif
 		}

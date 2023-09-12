@@ -114,13 +114,18 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 				//对调交换公钥私钥
 				ST("【Unsafe|对调公钥私钥，私钥加密公钥解密】", "[ Unsafe | Swap the public key and private key, private key encryption and public key decryption ]");
-				rsa4 = rsa.SwapKey_Exponent_D__Unsafe();
+				var rsaPri = rsa.SwapKey_Exponent_D__Unsafe();
+				var rsaPub = new RSA_Util(rsa.ToPEM(true)).SwapKey_Exponent_D__Unsafe();
+				if (!RSA_Util.IsUseBouncyCastle) {
+					rsaPub = rsaPri;
+					ST(".NET自带的RSA不支持仅含公钥的密钥进行解密和签名，使用NoPadding填充方式或IsUseBouncyCastle时无此问题", "The RSA that comes with .NET does not support decryption and signing with keys containing only public keys. This problem does not occur when using NoPadding or IsUseBouncyCastle.");
+				}
 				try {
-					var en4 = rsa4.Encrypt("PKCS1", str);
-					var sign4 = rsa4.Sign("SHA1", str);
-					de = rsa4.Decrypt("PKCS1", en4);
+					var enPri = rsaPri.Encrypt("PKCS1", str);
+					var signPub = rsaPub.Sign("SHA1", str);
+					de = rsaPub.Decrypt("PKCS1", enPri);
 					AssertMsg(de, de == str);
-					AssertMsg(T("校验 OK", "Verify OK"), rsa4.Verify("SHA1", sign4, str));
+					AssertMsg(T("校验 OK", "Verify OK"), rsaPri.Verify("SHA1", signPub, str));
 				} catch (Exception e) {
 					if (!RSA_Util.IS_CoreOr46 && !RSA_Util.IsUseBouncyCastle) {
 						S(T("不支持在RSACryptoServiceProvider中使用：", "Not supported in RSACryptoServiceProvider: ") + e.Message);
@@ -129,7 +134,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 					}
 				}
 
-				rsa4 = rsa4.SwapKey_Exponent_D__Unsafe();
+				rsa4 = rsaPri.SwapKey_Exponent_D__Unsafe();
 				de = rsa4.Decrypt("PKCS1", en);
 				AssertMsg(de, de == str);
 				AssertMsg(T("校验 OK", "Verify OK"), rsa4.Verify("SHA1", sign, str));
@@ -141,7 +146,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 				ST("【测试一遍所有的加密、解密填充方式】  按回车键继续测试...", "[ Test all the encryption and decryption padding mode ]   Press Enter to continue testing...");
 				ReadIn();
 				RSA_Util rsa5 = new RSA_Util(2048);
-				testPaddings(false, rsa5, true);
+				testPaddings(false, rsa5, new RSA_Util(rsa5.ToPEM(true)), true);
 			}
 		}
 		static Type Type_RuntimeInformation(Type[] outOSPlatform) {
@@ -404,10 +409,20 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 			S(HR);
 			ST("测试一遍所有的加密、解密填充方式：", "Test all the encryption and decryption padding mode:");
-			testPaddings(checkOpenSSL, rsa, true);
+			testPaddings(checkOpenSSL, rsa, new RSA_Util(rsa.ToPEM(true)), true);
+
+			S(HR);
+			ST("Unsafe|是否要对调公钥私钥（私钥加密公钥解密）重新测试一遍？(Y/N) N", "Unsafe | Do you want to swap the public and private keys (private key encryption and public key decryption) and test again? (Y/N) N");
+			Console.Write("> ");
+			string yn = ReadIn().Trim().ToUpper();
+			if (yn == "Y") {
+				var rsaPri = rsa.SwapKey_Exponent_D__Unsafe();
+				var rsaPub = new RSA_Util(rsa.ToPEM(true)).SwapKey_Exponent_D__Unsafe();
+				testPaddings(checkOpenSSL, rsaPub, rsaPri, true);
+			}
 		}
 		/// <summary>测试一遍所有的加密、解密填充方式</summary>
-		static int testPaddings(bool checkOpenSSL, RSA_Util rsa, bool log) {
+		static int testPaddings(bool checkOpenSSL, RSA_Util rsaPri, RSA_Util rsaPub, bool log) {
 			int errCount = 0;
 			var errMsgs = new List<string>();
 			var txt = "1234567890";
@@ -419,7 +434,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 
 			if (checkOpenSSL) {
 				try {
-					runOpenSSL(rsa, txtData);
+					runOpenSSL(rsaPri.HasPrivate ? rsaPri : rsaPub, txtData);
 				} catch (Exception e) {
 					S(T("运行OpenSSL失败：", "Failed to run OpenSSL: ") + e.Message);
 					return errCount;
@@ -431,8 +446,8 @@ namespace com.github.xiangyuecn.rsacsharp {
 				var errMsg = "";
 				try {
 					{
-						byte[] enc = rsa.Encrypt(type, txtData);
-						byte[] dec = rsa.Decrypt(type, enc);
+						byte[] enc = rsaPub.Encrypt(type, txtData);
+						byte[] dec = rsaPri.Decrypt(type, enc);
 						bool isOk = true;
 						if (dec.Length != txtData.Length) {
 							isOk = false;
@@ -456,7 +471,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 							errMsg = "+OpenSSL: " + T("OpenSSL加密出错", "OpenSSL encryption error");
 							throw e;
 						}
-						byte[] dec = rsa.Decrypt(type, enc);
+						byte[] dec = rsaPri.Decrypt(type, enc);
 						bool isOk = true;
 						if (dec.Length != txtData.Length) {
 							isOk = false;
@@ -493,8 +508,8 @@ namespace com.github.xiangyuecn.rsacsharp {
 				var errMsg = "";
 				try {
 					{
-						byte[] sign = rsa.Sign(type, txtData);
-						var isOk = rsa.Verify(type, sign, txtData);
+						byte[] sign = rsaPri.Sign(type, txtData);
+						var isOk = rsaPub.Verify(type, sign, txtData);
 						if (!isOk) {
 							errMsg = T("未通过校验", "Failed verification");
 							throw new Exception(errMsg);
@@ -508,7 +523,7 @@ namespace com.github.xiangyuecn.rsacsharp {
 							errMsg = "+OpenSSL: " + T("OpenSSL签名出错", "OpenSSL signature error");
 							throw e;
 						}
-						var isOk = rsa.Verify(type, sign, txtData);
+						var isOk = rsaPub.Verify(type, sign, txtData);
 						if (!isOk) {
 							errMsg = "+OpenSSL: " + T("未通过校验", "Failed verification");
 							throw new Exception(errMsg);
@@ -550,12 +565,13 @@ namespace com.github.xiangyuecn.rsacsharp {
 			int Count = 0;
 			int ErrCount = 0;
 			RSA_Util rsa = new RSA_Util(2048);
+			RSA_Util rsaPub = new RSA_Util(rsa.ToPEM(true));
 			S(T("正在测试中，线程数：", "Under test, number of threads: ") + ThreadCount + T("，按回车键结束测试...", ", press enter to end the test..."));
 
 			for (int i = 0; i < ThreadCount; i++) {
 				new Thread(() => {
 					while (!Abort) {
-						int err = testPaddings(false, rsa, false);
+						int err = testPaddings(false, rsa, rsaPub, false);
 						if (err > 0) {
 							Interlocked.Add(ref ErrCount, err);
 						}
